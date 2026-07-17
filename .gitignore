@@ -1,0 +1,30 @@
+# ─── Rust / Cargo ──────────────────────────────────────────────
+# Artefatos de build (binarios, cache de compilacao)
+/target/
+**/*.rs.bk
+
+# Cargo.lock: MANTIDO no versionamento (este crate e um binario).
+# Para binarios a recomendacao oficial e commitar o Cargo.lock,
+# garantindo builds reproduziveis. Nao ignore.
+
+# ─── Area de trabalho em tempo de execucao ─────────────────────
+# Quando o `det` roda na raiz do projeto, ele cria/usa estas pastas.
+# Evidencias e saidas nao devem ir para o repositorio.
+/Release/
+teste_selected_*.xlsx
+
+# DETs gerados (caso fiquem fora de /Release/ por algum motivo)
+DET_*.docx
+DET_*.pdf
+DET_Compilado*.pdf
+
+# ─── Sistema operacional ───────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ─── Editores ──────────────────────────────────────────────────
+# Descomente se NAO quiser versionar as configuracoes do VS Code:
+# /.vscode/
+*.swp
+*~

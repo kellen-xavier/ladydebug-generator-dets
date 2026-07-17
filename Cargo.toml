@@ -1,0 +1,19 @@
+[package]
+name = "gestor-det"
+version = "0.1.0"
+edition = "2021"
+description = "Gestor de Documentos de Testes (DET) — menu de terminal para gerar e organizar evidencias de teste manual"
+authors = ["kellen-xavier"]
+
+[[bin]]
+name = "det"
+path = "src/main.rs"
+
+[dependencies]
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+panic = "abort"
