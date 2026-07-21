@@ -22,15 +22,23 @@ impl Workspace {
         }
     }
 
-    /// Nome da pasta de release do mes/ano atual: "Release <Mes> <AAAA>".
-    pub fn nome_release_atual(&self) -> String {
-        let (ano, mes, _) = hoje_ymd();
-        format!("Release {} {}", nome_mes(mes), ano)
+    /// Lista as pastas `ID CARD <n>` dentro de uma release (ordem natural).
+    pub fn listar_cards(&self, release: &Path) -> Vec<PathBuf> {
+        let mut v: Vec<PathBuf> = match fs::read_dir(release) {
+            Ok(rd) => rd
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| p.is_dir() && nome_de(p).to_ascii_uppercase().starts_with("ID CARD"))
+                .collect(),
+            Err(_) => Vec::new(),
+        };
+        v.sort_by(|a, b| natural_key(nome_de(a)).cmp(&natural_key(nome_de(b))));
+        v
     }
 
-    /// Caminho completo da pasta de release do mes atual (pode nao existir).
-    pub fn caminho_release_atual(&self) -> PathBuf {
-        self.dir_release.join(self.nome_release_atual())
+    /// Nome padronizado da pasta de card: "ID CARD <numero>".
+    pub fn nome_card(&self, numero: &str) -> String {
+        format!("ID CARD {}", numero.trim())
     }
 
     /// Lista as pastas de release existentes em `Release/` (ordem natural).

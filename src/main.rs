@@ -1,31 +1,35 @@
 //! Gestor de Documentos de Testes (DET).
 //!
-//! Menu de terminal para gerar e organizar evidencias de teste manual:
-//!   1. Criar Pasta da Release        (Release <Mes> <AAAA>)
-//!   2. Criar subpastas dos testes    (ID - nome, ate 10 chars)
+//! Menu de terminal para gerar e organizar evidencias de teste manual, com
+//! contexto (Release + ID CARD) e navegacao guiada:
+//!   1. Selecionar Release e ID CARD  (cria se nao existir)
+//!   2. Criar subpastas dos testes    (ID - nome, dentro do card)
 //!   3. Gerar DET - docx              (preenche o modelo + insere evidencias)
 //!   4. Gerar DET PDF                 (docx -> pdf via LibreOffice)
 //!   5. Gerar DET compilado           (junta os PDFs, limite 30 MB)
+//!   6. Verificar ambiente            (ferramentas externas de PDF)
 //!
-//! Area de trabalho (por padrao, a pasta atual) deve conter:
+//! Estrutura da area de trabalho:
 //!   modelos/                 -> modelo_det.docx (com os tokens {{...}})
-//!   Release/                 -> pasta central das releases
+//!   Release/                 -> Release <Mes> <AAAA>/ ID CARD <n>/ <ID> - <nome>/
 //!   teste_selected_*.xlsx    -> planilha exportada (a mais recente e usada)
 
-mod acoes;
-mod docx;
-mod menu;
-mod pdf;
-mod util;
-mod workspace;
-mod xlsx;
-
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use util::*;
-use workspace::Workspace;
+use gestor_det::acoes;
+use gestor_det::menu::{self, Nav};
+use gestor_det::pdf;
+use gestor_det::util::*;
+use gestor_det::workspace::{nome_de, Workspace};
+
+/// Contexto de trabalho selecionado na opcao 1.
+#[derive(Default)]
+struct Contexto {
+    release: Option<PathBuf>,
+    card: Option<PathBuf>,
+}
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
@@ -41,66 +45,99 @@ fn main() -> ExitCode {
     };
     let ws = Workspace::detectar(&base);
 
+    // Primeiro contato: mostrar se o ambiente esta ok, com retorno facil.
+    verificar_ambiente();
+    menu::pausar();
+
+    let mut ctx = Contexto::default();
     loop {
-        match menu::selecionar_acao(&ws) {
+        match menu::selecionar_acao(&ws, ctx.release.as_deref(), ctx.card.as_deref()) {
             0 => {
                 log("Ate mais.");
                 return ExitCode::SUCCESS;
             }
-            1 => executar_1(&ws),
-            2 => executar_2(&ws),
-            3 => executar_3(&ws),
-            4 => executar_4(&ws),
-            5 => executar_5(&ws),
+            1 => {
+                if executar_1(&ws, &mut ctx) {
+                    menu::pausar();
+                }
+            }
+            2 => {
+                executar_2(&ws, &ctx);
+                menu::pausar();
+            }
+            3 => {
+                executar_3(&ws, &ctx);
+                menu::pausar();
+            }
+            4 => {
+                executar_4(&ctx);
+                menu::pausar();
+            }
+            5 => {
+                executar_5(&ctx);
+                menu::pausar();
+            }
+            6 => {
+                verificar_ambiente();
+                menu::pausar();
+            }
             _ => {}
         }
     }
 }
 
-fn ajuda(prog: &str) {
-    println!(
-        "Gestor de Documentos de Testes (DET)\n\n\
-         Uso:\n  {prog} [--base <pasta_de_trabalho>]\n\n\
-         Sem argumentos, usa a pasta atual como area de trabalho.\n\
-         Abra o terminal na sua pasta de trabalho e rode o comando para ver o menu.\n\n\
-         Estrutura esperada da area de trabalho:\n\
-           modelos/                modelo_det.docx (com tokens {{{{ID}}}}, {{{{EVIDENCIAS}}}}, ...)\n\
-           Release/                pasta central das releases\n\
-           teste_selected_*.xlsx   planilha exportada (a mais recente e usada)"
-    );
-}
+// ─── Acao 1: selecionar Release + ID CARD (define o contexto) ───────────────
 
-// ─── Acao 1 ────────────────────────────────────────────────────────────────
-
-fn executar_1(ws: &Workspace) {
-    match acoes::criar_release(ws) {
-        Ok(_) => {}
-        Err(e) => erro(&e),
+/// Devolve `true` se o contexto (release + card) foi definido.
+fn executar_1(ws: &Workspace, ctx: &mut Contexto) -> bool {
+    loop {
+        let release = match menu::selecionar_release(ws) {
+            Nav::Escolha(r) => r,
+            Nav::Anterior | Nav::Principal => return false,
+        };
+        match menu::selecionar_card(ws, &release) {
+            Nav::Anterior => continue, // volta a escolher a release
+            Nav::Principal => return false,
+            Nav::Escolha(card) => {
+                log(&format!("Contexto: {} | {}", nome_de(&release), nome_de(&card)));
+                ctx.release = Some(release);
+                ctx.card = Some(card);
+                return true;
+            }
+        }
     }
 }
 
-// ─── Acao 2 ────────────────────────────────────────────────────────────────
+// ─── Acoes 2..5: exigem um card selecionado ─────────────────────────────────
 
-fn executar_2(ws: &Workspace) {
-    let release = match menu::escolher_release(ws) {
-        Some(r) => r,
+fn exigir_card(ctx: &Contexto) -> Option<&Path> {
+    match ctx.card.as_deref() {
+        Some(c) => Some(c),
+        None => {
+            erro("Selecione uma Release e um ID CARD primeiro (opcao 1).");
+            None
+        }
+    }
+}
+
+fn executar_2(ws: &Workspace, ctx: &Contexto) {
+    let card = match exigir_card(ctx) {
+        Some(c) => c,
         None => return,
     };
     let planilha = match resolver_planilha(ws) {
         Some(p) => p,
         None => return,
     };
-    match acoes::criar_subpastas(&release, &planilha) {
+    match acoes::criar_subpastas(card, &planilha) {
         Ok(n) => log(&format!("Concluido: {n} subpasta(s) criada(s).")),
         Err(e) => erro(&e),
     }
 }
 
-// ─── Acao 3 ────────────────────────────────────────────────────────────────
-
-fn executar_3(ws: &Workspace) {
-    let release = match menu::escolher_release(ws) {
-        Some(r) => r,
+fn executar_3(ws: &Workspace, ctx: &Contexto) {
+    let card = match exigir_card(ctx) {
+        Some(c) => c,
         None => return,
     };
     let planilha = match resolver_planilha(ws) {
@@ -112,7 +149,7 @@ fn executar_3(ws: &Workspace) {
         None => return,
     };
     let legendas = menu::perguntar_sn("  Adicionar legenda (nome do arquivo) sob cada imagem?");
-    match acoes::gerar_docx(&release, &planilha, &modelo, legendas) {
+    match acoes::gerar_docx(card, &planilha, &modelo, legendas) {
         Ok(r) => log(&format!(
             "Concluido: {} gerado(s), {} ignorado(s), {} com aviso.",
             r.gerados, r.ignorados, r.avisos
@@ -121,32 +158,58 @@ fn executar_3(ws: &Workspace) {
     }
 }
 
-// ─── Acao 4 ────────────────────────────────────────────────────────────────
-
-fn executar_4(ws: &Workspace) {
-    let release = match menu::escolher_release(ws) {
-        Some(r) => r,
+fn executar_4(ctx: &Contexto) {
+    let card = match exigir_card(ctx) {
+        Some(c) => c,
         None => return,
     };
-    match acoes::gerar_pdf(&release) {
+    match acoes::gerar_pdf(card) {
         Ok(n) => log(&format!("Concluido: {n} PDF(s) gerado(s).")),
         Err(e) => erro(&e),
     }
 }
 
-// ─── Acao 5 ────────────────────────────────────────────────────────────────
-
-fn executar_5(ws: &Workspace) {
-    let release = match menu::escolher_release(ws) {
-        Some(r) => r,
+fn executar_5(ctx: &Contexto) {
+    let card = match exigir_card(ctx) {
+        Some(c) => c,
         None => return,
     };
     let limite = menu::perguntar_com_default("  Limite por arquivo (MB)", "30");
     let limite_mb: u64 = limite.parse().unwrap_or(30);
-    match acoes::gerar_compilado(&release, limite_mb) {
+    match acoes::gerar_compilado(card, limite_mb) {
         Ok(v) => log(&format!("Concluido: {} arquivo(s) gerado(s).", v.len())),
         Err(e) => erro(&e),
     }
+}
+
+// ─── Ambiente ───────────────────────────────────────────────────────────────
+
+fn verificar_ambiente() {
+    let barra = "=".repeat(58);
+    println!("\n{barra}");
+    println!("  Ambiente");
+    println!("{barra}");
+    status("LibreOffice (soffice)", pdf::soffice_bin().is_some(), true, "necessario p/ [4] Gerar DET PDF");
+    status("qpdf", pdf::find_in_path(&["qpdf"]).is_some(), true, "necessario p/ [5] Gerar DET compilado");
+    status(
+        "Ghostscript (gs)",
+        pdf::find_in_path(&["gs", "gswin64c", "gswin32c"]).is_some(),
+        false,
+        "opcional: comprime o compilado",
+    );
+    println!("{barra}");
+    println!("  Gerar .docx (acoes 1-3) nao depende de nada externo.");
+}
+
+fn status(nome: &str, presente: bool, obrigatorio: bool, obs: &str) {
+    let marca = if presente {
+        "[ ok  ]"
+    } else if obrigatorio {
+        "[falta]"
+    } else {
+        "[ --  ]"
+    };
+    println!("  {marca} {nome:<22} {obs}");
 }
 
 // ─── Resolucao de planilha e modelo (com confirmacao) ──────────────────────
@@ -187,7 +250,20 @@ fn resolver_modelo(ws: &Workspace) -> Option<PathBuf> {
     Some(p)
 }
 
-// ─── Utilitario de argumentos ──────────────────────────────────────────────
+// ─── Ajuda e utilitario de argumentos ──────────────────────────────────────
+
+fn ajuda(prog: &str) {
+    println!(
+        "Gestor de Documentos de Testes (DET)\n\n\
+         Uso:\n  {prog} [--base <pasta_de_trabalho>]\n\n\
+         Sem argumentos, usa a pasta atual como area de trabalho.\n\
+         Abra o terminal na sua pasta de trabalho e rode o comando para ver o menu.\n\n\
+         Estrutura esperada da area de trabalho:\n\
+           modelos/                modelo_det.docx (com tokens {{{{ID}}}}, {{{{EVIDENCIAS}}}}, ...)\n\
+           Release/                Release <Mes> <AAAA>/ ID CARD <n>/ <ID> - <nome>/\n\
+           teste_selected_*.xlsx   planilha exportada (a mais recente e usada)"
+    );
+}
 
 fn arg_valor(args: &[String], flag: &str) -> Option<String> {
     let i = args.iter().position(|a| a == flag)?;

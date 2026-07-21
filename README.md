@@ -1,8 +1,8 @@
 # Gestor de Documentos de Testes (DET)
 
-Ferramenta de terminal para **gerar e organizar as evidências de testes manuais**. Você instala no PC, abre o terminal na sua pasta de trabalho, roda o comando `det` e escolhe a ação num menu.
+Ferramenta de terminal TUI (Terminal User Interface) para **gerar e organizar as evidências de testes manuais** na sua máquina local e Gerar relatórios auditáveis dos Testes. Você baixa no seu PC, abre o terminal na raiz do projeto, executa o comando `det` e escolhe a ação no menu.
 
-```
+```txt
 ==========================================================
   Gestor de Documentos de Testes (DET)
   Area de trabalho: C:\testes\meu-projeto
@@ -57,7 +57,7 @@ O menu abre; você digita o número da ação e responde às perguntas (os camin
 
 ## Estrutura da área de trabalho
 
-```
+```txt
 <pasta-de-trabalho>/
 ├─ modelos/
 │    └─ modelo_det.docx            # modelo do DET (com os tokens {{...}})
@@ -119,7 +119,7 @@ A geração do `.docx` (ações 1–3) **não** depende de nada externo — apen
 
 ## Estrutura do código
 
-```
+```txt
 src/
 ├─ main.rs        # ponto de entrada + laço do menu + dispatch
 ├─ menu.rs        # desenho do menu e leitura das respostas

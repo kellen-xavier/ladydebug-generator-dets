@@ -1,4 +1,5 @@
-//! As cinco acoes do gestor de DET.
+//! As acoes de geracao do gestor de DET. Operam dentro da pasta do ID CARD
+//! selecionado (que contem as subpastas `ID - nome` de cada teste).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -6,27 +7,13 @@ use std::path::{Path, PathBuf};
 use crate::docx::Docx;
 use crate::pdf;
 use crate::util::*;
-use crate::workspace::{nome_de, Workspace};
+use crate::workspace::nome_de;
 use crate::xlsx::{read_xlsx, HeaderMap};
 
-// ─── 1. Criar pasta da Release ─────────────────────────────────────────────
+// ─── Criar subpastas dos testes ────────────────────────────────────────────
 
-pub fn criar_release(ws: &Workspace) -> Result<PathBuf, String> {
-    let destino = ws.caminho_release_atual();
-    if destino.is_dir() {
-        log(&format!("Ja existe: {}", destino.display()));
-    } else {
-        fs::create_dir_all(&destino)
-            .map_err(|e| format!("nao criei '{}': {e}", destino.display()))?;
-        ok(&format!("Pasta da release criada: {}", destino.display()));
-    }
-    Ok(destino)
-}
-
-// ─── 2. Criar subpastas dos testes ─────────────────────────────────────────
-
-/// Cria `<ID> - <nome ate 10 chars>` para cada linha da planilha.
-pub fn criar_subpastas(release_dir: &Path, planilha: &Path) -> Result<usize, String> {
+/// Cria `<ID> - <nome ate 10 chars>` para cada linha da planilha, dentro do card.
+pub fn criar_subpastas(card_dir: &Path, planilha: &Path) -> Result<usize, String> {
     let linhas = read_xlsx(planilha)?;
     if linhas.is_empty() {
         return Err("planilha sem linhas".into());
@@ -42,7 +29,7 @@ pub fn criar_subpastas(release_dir: &Path, planilha: &Path) -> Result<usize, Str
         let nome = col.get(linha, col.nome);
         let nome_curto = sanitize(&truncar(&nome, 10));
         let pasta = format!("{id} - {nome_curto}");
-        let destino = release_dir.join(&pasta);
+        let destino = card_dir.join(&pasta);
         if destino.is_dir() {
             log(&format!("Linha {n}: ja existe '{pasta}'"));
         } else {
@@ -55,7 +42,7 @@ pub fn criar_subpastas(release_dir: &Path, planilha: &Path) -> Result<usize, Str
     Ok(criadas)
 }
 
-// ─── 3. Gerar DET - docx ───────────────────────────────────────────────────
+// ─── Gerar DET - docx ───────────────────────────────────────────────────────
 
 pub struct ResumoDocx {
     pub gerados: usize,
@@ -64,7 +51,7 @@ pub struct ResumoDocx {
 }
 
 pub fn gerar_docx(
-    release_dir: &Path,
+    card_dir: &Path,
     planilha: &Path,
     modelo: &Path,
     legendas: bool,
@@ -99,7 +86,7 @@ pub fn gerar_docx(
             continue;
         }
 
-        let subpasta = match achar_subpasta(release_dir, &id) {
+        let subpasta = match achar_subpasta(card_dir, &id) {
             Some(p) => p,
             None => {
                 warn(&format!(
@@ -131,10 +118,10 @@ pub fn gerar_docx(
     Ok(r)
 }
 
-// ─── 4. Gerar DET PDF (docx -> pdf) ────────────────────────────────────────
+// ─── Gerar DET PDF (docx -> pdf) ────────────────────────────────────────────
 
-pub fn gerar_pdf(release_dir: &Path) -> Result<usize, String> {
-    let docs = coletar_arquivos(release_dir, "docx", Some("DET_"));
+pub fn gerar_pdf(card_dir: &Path) -> Result<usize, String> {
+    let docs = coletar_arquivos(card_dir, "docx", Some("DET_"));
     if docs.is_empty() {
         return Err("nenhum DET .docx encontrado (rode 'Gerar DET - docx' antes).".into());
     }
@@ -154,11 +141,11 @@ pub fn gerar_pdf(release_dir: &Path) -> Result<usize, String> {
     Ok(n)
 }
 
-// ─── 5. Gerar DET compilado (juntar PDFs, limite 30 MB) ────────────────────
+// ─── Gerar DET compilado (juntar PDFs, limite 30 MB) ────────────────────────
 
-pub fn gerar_compilado(release_dir: &Path, limite_mb: u64) -> Result<Vec<PathBuf>, String> {
+pub fn gerar_compilado(card_dir: &Path, limite_mb: u64) -> Result<Vec<PathBuf>, String> {
     let limite = limite_mb * 1024 * 1024;
-    let mut pdfs = coletar_arquivos(release_dir, "pdf", None);
+    let mut pdfs = coletar_arquivos(card_dir, "pdf", None);
     // ignora arquivos ja compilados
     pdfs.retain(|p| !nome_de(p).to_ascii_lowercase().starts_with("det_compilado"));
     if pdfs.is_empty() {
@@ -168,9 +155,9 @@ pub fn gerar_compilado(release_dir: &Path, limite_mb: u64) -> Result<Vec<PathBuf
     log(&format!("{} PDF(s) para compilar (limite {} MB).", pdfs.len(), limite_mb));
 
     // Tentativa unica: junta tudo e comprime.
-    let tmp = release_dir.join(".det_merge_tmp.pdf");
+    let tmp = card_dir.join(".det_merge_tmp.pdf");
     pdf::merge_pdfs(&pdfs, &tmp)?;
-    let unico = release_dir.join("DET_Compilado.pdf");
+    let unico = card_dir.join("DET_Compilado.pdf");
     aplicar_compressao(&tmp, &unico)?;
 
     if pdf::tamanho(&unico) <= limite {
@@ -189,7 +176,7 @@ pub fn gerar_compilado(release_dir: &Path, limite_mb: u64) -> Result<Vec<PathBuf
     let grupos = bin_pack(&pdfs, (limite as f64 * 0.9) as u64);
     let mut saidas = Vec::new();
     for (i, grupo) in grupos.iter().enumerate() {
-        let parte = release_dir.join(format!("DET_Compilado_Parte_{}.pdf", i + 1));
+        let parte = card_dir.join(format!("DET_Compilado_Parte_{}.pdf", i + 1));
         pdf::merge_pdfs(grupo, &tmp)?;
         aplicar_compressao(&tmp, &parte)?;
         ok(&format!(
@@ -208,17 +195,16 @@ pub fn gerar_compilado(release_dir: &Path, limite_mb: u64) -> Result<Vec<PathBuf
 fn aplicar_compressao(entrada: &Path, saida: &Path) -> Result<(), String> {
     match pdf::comprimir_pdf(entrada, saida)? {
         true => Ok(()),
-        false => {
-            fs::copy(entrada, saida)
-                .map(|_| ())
-                .map_err(|e| format!("nao copiei o PDF: {e}"))
-        }
+        false => fs::copy(entrada, saida)
+            .map(|_| ())
+            .map_err(|e| format!("nao copiei o PDF: {e}")),
     }
 }
 
 /// Agrupa PDFs em partes cujo tamanho somado (bruto) nao passa de `limite`.
 /// Um PDF maior que o limite vira uma parte propria (sem divisao por pagina).
-fn bin_pack(pdfs: &[PathBuf], limite: u64) -> Vec<Vec<PathBuf>> {
+/// `pub` para ser exercitado nos testes de integracao.
+pub fn bin_pack(pdfs: &[PathBuf], limite: u64) -> Vec<Vec<PathBuf>> {
     let mut grupos: Vec<Vec<PathBuf>> = Vec::new();
     let mut atual: Vec<PathBuf> = Vec::new();
     let mut soma = 0u64;
@@ -239,10 +225,10 @@ fn bin_pack(pdfs: &[PathBuf], limite: u64) -> Vec<Vec<PathBuf>> {
 
 // ─── Helpers de localizacao ────────────────────────────────────────────────
 
-/// Coleta arquivos com a extensao dada nas subpastas da release, em ordem
-/// natural (por subpasta e por nome). `prefixo` filtra pelo inicio do nome.
-fn coletar_arquivos(release_dir: &Path, ext: &str, prefixo: Option<&str>) -> Vec<PathBuf> {
-    let mut subs: Vec<PathBuf> = match fs::read_dir(release_dir) {
+/// Coleta arquivos com a extensao dada nas subpastas de `dir`, em ordem natural
+/// (por subpasta e por nome). `prefixo` filtra pelo inicio do nome.
+fn coletar_arquivos(dir: &Path, ext: &str, prefixo: Option<&str>) -> Vec<PathBuf> {
+    let mut subs: Vec<PathBuf> = match fs::read_dir(dir) {
         Ok(rd) => rd.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect(),
         Err(_) => return Vec::new(),
     };
@@ -274,9 +260,9 @@ fn coletar_arquivos(release_dir: &Path, ext: &str, prefixo: Option<&str>) -> Vec
 }
 
 /// Acha a subpasta cujo prefixo numerico e igual a ID.
-fn achar_subpasta(release: &Path, id: &str) -> Option<PathBuf> {
+fn achar_subpasta(dir: &Path, id: &str) -> Option<PathBuf> {
     let alvo = id.trim();
-    for e in fs::read_dir(release).ok()?.flatten() {
+    for e in fs::read_dir(dir).ok()?.flatten() {
         let path = e.path();
         if path.is_dir() {
             if let Some(nome) = path.file_name().and_then(|s| s.to_str()) {
