@@ -2,7 +2,7 @@
 //!   - docx -> pdf via LibreOffice (`soffice`/`libreoffice`)
 //!   - juntar PDFs via `qpdf`
 //!   - comprimir via Ghostscript (`gs`)
-//! Espelha a abordagem de `docx_to_pdf.rs` e `juntar_pdfs.rb` do repositorio.
+//! Todas sao ferramentas externas opcionais; nenhuma dependencia de crate.
 
 use std::env;
 use std::fs;

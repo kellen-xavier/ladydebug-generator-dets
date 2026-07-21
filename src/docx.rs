@@ -215,7 +215,10 @@ fn processar_paragrafo(par: &str, vars: &[(&str, &str)]) -> String {
     if !vars.iter().any(|(tok, _)| concat.contains(tok)) {
         return par.to_string();
     }
-    let mut novo = concat.clone();
+    // Escapa todo o texto do paragrafo antes de reescrever os runs: os tokens
+    // {{ }} nao tem caracteres especiais e sobrevivem ao escape; os valores sao
+    // escapados na substituicao. Assim texto estatico com & < > nao corrompe o XML.
+    let mut novo = xml_escape(&concat);
     for (tok, val) in vars {
         if novo.contains(tok) {
             novo = novo.replace(tok, &xml_escape(val));

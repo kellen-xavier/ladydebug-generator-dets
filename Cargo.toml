@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 description = "Gestor de Documentos de Testes (DET) — menu de terminal para gerar e organizar evidencias de teste manual"
 authors = ["kellen-xavier"]
+license = "MIT"
+repository = "https://github.com/kellen-xavier/ladydebug-generator-dets"
+readme = "README.md"
 
 [[bin]]
 name = "det"
