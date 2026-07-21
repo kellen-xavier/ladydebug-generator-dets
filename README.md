@@ -132,3 +132,15 @@ src/
 ```
 
 Dependência única: o crate [`zip`](https://crates.io/crates/zip). O `.docx` e o `.xlsx` são manipulados diretamente como ZIP + XML.
+
+## Testes
+
+```bash
+
+cargo build 
+
+cargo build --release
+
+cargo test
+
+```

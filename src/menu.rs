@@ -78,26 +78,36 @@ pub fn selecionar_acao(ws: &Workspace, release: Option<&Path>, card: Option<&Pat
     let linha = "-".repeat(52);
     println!("\n{barra}");
     println!("  Gestor de Documentos de Testes (DET)");
-    println!("  Area de trabalho: {}", ws.raiz.display());
+    println!("  Pasta de trabalho: {}", ws.raiz.display());
     println!("{barra}");
-    println!(
-        "  Contexto  Release: {}   .   Card: {}",
-        ctx_txt(release, "(nenhuma)"),
-        ctx_txt(card, "(nenhum)")
-    );
+    println!("  Release atual: {}", ctx_txt(release, "(nenhuma selecionada)"));
+    println!("  Card atual:    {}", ctx_txt(card, "(nenhum selecionado)"));
+    println!("  {linha}");
+    let releases = ws.listar_releases();
+    if releases.is_empty() {
+        println!("  Ainda nao ha Release nesta pasta -- use [1] para criar uma.");
+    } else {
+        println!("  Releases nesta pasta ([*] = a que voce esta usando):");
+        for r in &releases {
+            let marca = if Some(r.as_path()) == release { "*" } else { " " };
+            println!("     [{marca}] {}", nome_de(r));
+        }
+    }
+    println!("{barra}");
+    let dica = if release.is_none() { "   <- comece por aqui" } else { "" };
     println!("  -- Organizar {}", "-".repeat(40));
-    println!("   [1] Selecionar Release e ID CARD");
+    println!("   [1] Selecionar / criar Release e ID CARD{dica}");
     println!("   [2] Criar subpastas dos testes  (ID - nome)");
     println!("  -- Gerar {}", "-".repeat(44));
-    println!("   [3] Gerar DET - docx");
-    println!("   [4] Gerar DET PDF");
-    println!("   [5] Gerar DET compilado");
+    println!("   [3] Gerar DET (.docx)");
+    println!("   [4] Gerar DET em PDF");
+    println!("   [5] Gerar DET compilado (PDF unico)");
     println!("  {linha}");
     println!("   [6] Verificar ambiente");
     println!("   [0] Sair");
     println!("{barra}");
     loop {
-        print!("  Selecione a acao [0-6]: ");
+        print!("  Selecione uma opcao [0-6]: ");
         let _ = io::stdout().flush();
         let r = ler_linha();
         if r.is_empty() {
@@ -123,15 +133,15 @@ pub fn selecionar_release(ws: &Workspace) -> Nav<PathBuf> {
         let releases = ws.listar_releases();
         let barra = "-".repeat(52);
         println!("\n{barra}");
-        println!("  1) Selecione a release");
+        println!("  Passo 1 de 2  -  Selecione a Release (Mes Ano)");
         println!("{barra}");
         if releases.is_empty() {
-            println!("   (nenhuma release ainda)");
+            println!("   (nenhuma release ainda -- crie uma com a opcao N)");
         }
         for (i, r) in releases.iter().enumerate() {
             println!("   [{}] {}", i + 1, nome_de(r));
         }
-        println!("   [N] Criar nova release...");
+        println!("   [N] Criar nova Release (escolhe mes e ano)...");
         println!("   [0] Voltar ao menu principal");
         let escolha = perguntar_com_default("  Opcao", "").to_ascii_lowercase();
         match escolha.as_str() {
@@ -160,7 +170,8 @@ pub fn selecionar_card(ws: &Workspace, release: &Path) -> Nav<PathBuf> {
         let cards = ws.listar_cards(release);
         let barra = "-".repeat(52);
         println!("\n{barra}");
-        println!("  2) ID CARD  .  {}", nome_de(release));
+        println!("  Passo 2 de 2  -  Selecione o ID CARD");
+        println!("  Release: {}", nome_de(release));
         println!("{barra}");
         if cards.is_empty() {
             println!("   (nenhum card nesta release ainda)");
