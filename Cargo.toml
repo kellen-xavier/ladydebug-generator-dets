@@ -9,7 +9,7 @@ repository = "https://github.com/kellen-xavier/ladydebug-generator-dets"
 readme = "README.md"
 
 [[bin]]
-name = "det"
+name = "gerador-dets"
 path = "src/main.rs"
 
 [dependencies]
