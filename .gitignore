@@ -3,6 +3,9 @@
 /target/
 **/*.rs.bk
 
+# Pacote distribuivel gerado por empacotar.ps1
+/dist/
+
 # Cargo.lock: MANTIDO no versionamento (este crate e um binario).
 # Para binarios a recomendacao oficial e commitar o Cargo.lock,
 # garantindo builds reproduziveis. Nao ignore.

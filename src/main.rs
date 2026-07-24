@@ -34,7 +34,7 @@ struct Contexto {
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
     if args.iter().any(|a| a == "-h" || a == "--help") {
-        ajuda(args.first().map(String::as_str).unwrap_or("det"));
+        ajuda(args.first().map(String::as_str).unwrap_or("gerador-dets"));
         return ExitCode::SUCCESS;
     }
 

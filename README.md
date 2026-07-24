@@ -1,146 +1,232 @@
 # Gestor de Documentos de Testes (DET)
 
-Ferramenta de terminal TUI (Terminal User Interface) para **gerar e organizar as evidências de testes manuais** na sua máquina local e Gerar relatórios auditáveis dos Testes. Você baixa no seu PC, abre o terminal na raiz do projeto, executa o comando `det` e escolhe a ação no menu.
+Ferramenta de terminal TUI (Terminal User Interface) para **gerar e organizar as evidências de testes manuais** na sua máquina local e gerar relatórios auditáveis dos testes. Você baixa no seu PC, abre o terminal na pasta de trabalho, executa o comando `det` e escolhe a ação num menu — **sem precisar programar**.
 
 ```txt
 ==========================================================
   Gestor de Documentos de Testes (DET)
-  Area de trabalho: C:\testes\meu-projeto
+  Pasta de trabalho: C:\testes\meu-projeto
+==========================================================
+  Release atual: (nenhuma selecionada)
+  Card atual:    (nenhum selecionado)
+  ----------------------------------------------------
+  Releases nesta pasta ([*] = a que voce esta usando):
+     [ ] Release Julho 2026
 ==========================================================
   -- Organizar ----------------------------------------
-   [1] Criar Pasta da Release  (Release Julho 2026)
+   [1] Selecionar / criar Release e ID CARD   <- comece por aqui
    [2] Criar subpastas dos testes  (ID - nome)
   -- Gerar --------------------------------------------
-   [3] Gerar DET - docx
-   [4] Gerar DET PDF
-   [5] Gerar DET compilado
+   [3] Gerar DET (.docx)
+   [4] Gerar DET em PDF
+   [5] Gerar DET compilado (PDF unico)
   ----------------------------------------------------
+   [6] Verificar ambiente
    [0] Sair
 ==========================================================
-  Selecione a acao [0-5]:
+  Selecione uma opcao [0-6]:
 ```
 
-## Instalação
+---
 
-Requer o [Rust](https://www.rust-lang.org/tools/install) (comando `cargo`). Depois:
+## O que este programa faz
+
+- **Organiza** suas evidências (os *prints* dos testes) em pastas padronizadas.
+- **Monta o documento de evidências (DET)** de cada teste automaticamente, a partir de um modelo Word e da sua planilha de testes.
+- **Converte** os documentos em PDF e pode **juntar tudo** num PDF único para anexar.
+
+Você não escreve nenhum comando complicado: é só rodar `det` e escolher números no menu.
+
+## Glossário rápido (para quem está começando)
+
+| Termo | O que é, em linguagem simples |
+|---|---|
+| **DET** | *Documento de Evidência de Testes* — o Word/PDF com o passo a passo e os prints de um teste. |
+| **Release** | O "pacote" do mês, ex.: `Release Julho 2026`. Agrupa o trabalho daquele período. |
+| **ID CARD** | O cartão/tarefa que você está testando (um número, ex.: `ID CARD 1399338`). Fica dentro da Release. |
+| **Teste (ID)** | Cada caso de teste tem um número (ex.: `13`) e um nome. Vira uma subpasta `13 - Login`. |
+| **Evidência** | As imagens (prints) que provam que o teste foi feito. |
+| **Planilha** | O arquivo Excel exportado do seu sistema de testes (nome começa com `teste_selected`). |
+| **Modelo** | O Word base (`modelos/modelo_det.docx`) que o programa preenche para cada teste. |
+
+---
+
+## Instalação (só uma vez)
+
+1. Instale o **[Rust](https://www.rust-lang.org/tools/install)** (ele traz o comando `cargo`). É um instalador simples, siga o padrão.
+2. Abra o terminal (no Windows: *PowerShell*) e rode:
 
 ```bash
-git clone <este-repositorio>
-cd gestor-det
+git clone <endereco-deste-repositorio>
+cd ladydebug-generator-dets
 cargo install --path .
 ```
 
-Isso compila e coloca o binário `det` no PATH (`~/.cargo/bin` no Linux/macOS, `%USERPROFILE%\.cargo\bin` no Windows). A partir daí, `det` roda de qualquer pasta.
+Pronto: o comando `det` fica disponível em **qualquer pasta** do seu computador.
 
-Para apenas compilar sem instalar:
+> 💡 Se aparecer *"det não é reconhecido"* logo após instalar, **feche e abra o terminal** de novo (para ele enxergar o novo comando).
 
-```bash
-cargo build --release
-# binario em target/release/det (Windows: det.exe)
-```
+*(Só quer testar sem instalar? Use `cargo run` dentro da pasta do projeto.)*
 
-## Como usar
+---
 
-Abra o terminal **na pasta de trabalho** do projeto e rode:
+## Passo a passo — do zero ao DET pronto
 
-```bash
-det
-```
+### Antes de começar: prepare a pasta de trabalho
 
-Ou aponte a pasta explicitamente:
+Crie (ou escolha) uma pasta para o seu trabalho e coloque nela **duas coisas**:
 
-```bash
-det --base "C:\testes\meu-projeto"
-```
+1. Uma pasta `modelos/` com o arquivo **`modelo_det.docx`** (já vem um pronto neste repositório — copie-o para lá).
+2. A **planilha** exportada do seu sistema de testes (o arquivo `teste_selected_....xlsx`).
 
-O menu abre; você digita o número da ação e responde às perguntas (os caminhos vêm preenchidos com valores detectados — basta apertar Enter para aceitar).
+### Agora, com o programa
 
-## Estrutura da área de trabalho
+1. **Abra o terminal na sua pasta de trabalho** e digite:
+
+   ```bash
+   det
+   ```
+
+2. A primeira tela mostra o **Ambiente** (o que está instalado). Leia e aperte **Enter** para ir ao menu.
+
+3. Escolha **`[1] Selecionar / criar Release e ID CARD`**:
+   - **Passo 1 de 2** — escolha a Release na lista, ou tecle `N` para criar uma nova (o programa pergunta o mês e o ano).
+   - **Passo 2 de 2** — digite o número do **ID CARD**. Se a pasta não existir, ele pergunta *"Essa pasta não existe. Deseja criar?"* — responda `S`.
+   - No topo do menu agora aparece **`Release atual`** e **`Card atual`**: é onde tudo será salvo.
+
+4. Escolha **`[2] Criar subpastas dos testes`**. O programa lê a planilha e cria uma pasta para cada teste (ex.: `13 - Login`).
+
+5. **Coloque as imagens (prints)** de cada teste **dentro da subpasta correspondente**. Nomeie em ordem (`01`, `02`, ...) para elas entrarem na sequência certa.
+
+6. Escolha **`[3] Gerar DET (.docx)`**. Ele preenche o modelo com os dados da planilha e insere as imagens. Pronto: cada teste ganha o seu `DET_...docx`.
+
+7. *(Opcional)* **`[4] Gerar DET em PDF`** e **`[5] Gerar DET compilado`** para ter os PDFs e um arquivo único para anexar. *(Essas duas precisam de programas extras — veja a seção de PDF abaixo.)*
+
+8. Para sair, escolha **`[0] Sair`**. Depois de qualquer ação, é só apertar **Enter** para voltar ao menu.
+
+> ℹ️ As opções `[2]` a `[5]` só funcionam depois que você fez a `[1]` — se não, o programa avisa *"Selecione uma Release e um ID CARD primeiro"*.
+
+---
+
+## O menu, opção por opção
+
+| Opção | O que faz |
+|---|---|
+| **[1] Selecionar / criar Release e ID CARD** | Escolhe (ou cria) a Release do mês e o ID CARD. Define **onde** tudo será salvo. |
+| **[2] Criar subpastas dos testes** | Lê a planilha e cria uma subpasta `ID - nome` por teste, dentro do card. |
+| **[3] Gerar DET (.docx)** | Para cada teste (pulando `Status = Ignorado`), preenche o modelo e insere as imagens em ordem natural (`1, 2, 10`). |
+| **[4] Gerar DET em PDF** | Converte cada `DET_*.docx` em PDF. *(Precisa do LibreOffice.)* |
+| **[5] Gerar DET compilado (PDF único)** | Junta os PDFs num só. Acima de 30 MB, divide em `Parte_1`, `Parte_2`... *(Precisa do qpdf.)* |
+| **[6] Verificar ambiente** | Mostra o que está instalado (LibreOffice, qpdf, Ghostscript). |
+| **[0] Sair** | Encerra o programa. |
+
+---
+
+## Como as pastas ficam organizadas
 
 ```txt
 <pasta-de-trabalho>/
 ├─ modelos/
-│    └─ modelo_det.docx            # modelo do DET (com os tokens {{...}})
-├─ Release/                        # pasta central das releases
-│    └─ Release <Mês> <AAAA>/      # criada pela ação [1]
-│         ├─ 13 - Login/           # subpasta do teste (ação [2]); coloque aqui as imagens
-│         │    ├─ captura_1.png
-│         │    ├─ captura_2.png
-│         │    ├─ DET_13_....docx  # gerado pela ação [3]
-│         │    └─ DET_13_....pdf   # gerado pela ação [4]
-│         └─ DET_Compilado.pdf     # gerado pela ação [5]
-└─ teste_selected_16_07_2026_10_30_00.xlsx   # planilha exportada (a mais recente é usada)
+│   └─ modelo_det.docx                 # o modelo do DET (com os tokens {{...}})
+├─ Release/                            # pasta central de todas as releases
+│   └─ Release Julho 2026/             # a Release (criada no passo [1])
+│       └─ ID CARD 1399338/            # o card do trabalho (passo [1])
+│           ├─ 13 - Login/             # uma subpasta por teste (passo [2])
+│           │   ├─ 01_print.png        # suas evidências (prints) vão AQUI
+│           │   ├─ 02_print.png
+│           │   ├─ DET_13_Login.docx   # gerado no passo [3]
+│           │   └─ DET_13_Login.pdf    # gerado no passo [4]
+│           └─ DET_Compilado.pdf       # gerado no passo [5]
+└─ teste_selected_16_07_2026.xlsx      # a planilha (o programa usa a mais recente)
 ```
 
-## As cinco ações
+---
 
-1. **Criar Pasta da Release** — cria `Release/Release <Mês> <AAAA>` com base na data local da máquina.
-2. **Criar subpastas dos testes** — lê a planilha e cria uma subpasta `ID - nome` (nome truncado em 10 caracteres) por teste. Coloque as imagens de evidência dentro de cada subpasta.
-3. **Gerar DET - docx** — para cada teste (pulando `Status nativo = Ignorado`), copia o modelo, preenche os campos e insere as imagens da subpasta em **ordem numérica natural** (`1, 2, 10`).
-4. **Gerar DET PDF** — converte cada `DET_*.docx` gerado em PDF (via LibreOffice).
-5. **Gerar DET compilado** — junta todos os PDFs das subpastas em um único `DET_Compilado.pdf`. Se passar de **30 MB**, divide em `DET_Compilado_Parte_1.pdf`, `Parte_2`, ... na ordem natural.
+## O modelo do DET e os "tokens"
 
-## Modelo do DET (`modelos/modelo_det.docx`)
+O repositório já traz um **modelo pronto** em `modelos/modelo_det.docx`. Você pode reestilizá-lo no Word à vontade (cores, logo, layout) — **só não apague os *tokens***. Token é um marcador escrito entre chaves duplas que o programa troca pelo valor real:
 
-O repositório já traz um **modelo inicial** pronto. Reestilize à vontade no Word, mantendo os **tokens** (podem estar em qualquer parágrafo, tabela ou cabeçalho do corpo):
-
-| Token | Preenchido com |
+| Token no modelo | É trocado por |
 |---|---|
-| `{{ID}}` | coluna `ID` |
-| `{{NOME_TESTE}}` | coluna `Nome do teste (inicial)` |
-| `{{EXECUTADO_POR}}` | coluna `Executado por` |
-| `{{STATUS}}` | coluna `Status nativo` |
-| `{{DATA}}` | data local (DD/MM/AAAA) |
-| `{{EVIDENCIAS}}` | parágrafo substituído pelas imagens da subpasta |
+| `{{ID}}` | o número do teste (coluna `ID`) |
+| `{{NOME_TESTE}}` | o nome do teste (coluna `Nome do teste (inicial)`) |
+| `{{EXECUTADO_POR}}` | quem executou (coluna `Executado por`) |
+| `{{STATUS}}` | o status (coluna `Status nativo`) |
+| `{{DATA}}` | a data de hoje (DD/MM/AAAA) |
+| `{{EVIDENCIAS}}` | este parágrafo vira **as imagens** da subpasta |
 
-O preenchimento é **robusto a "run splitting"**: mesmo que o Word divida `{{NOME_TESTE}}` internamente em vários trechos, o token é reconstituído e substituído corretamente.
+Funciona mesmo que o Word "quebre" um token internamente — o programa reconstrói e substitui certo.
 
-## Colunas obrigatórias da planilha
+## A planilha (colunas necessárias)
 
-`ID` · `Nome do teste (inicial)` · `Executado por` · `Status nativo`
+O programa precisa encontrar estas colunas: **`ID`**, **`Nome do teste (inicial)`**, **`Executado por`**, **`Status nativo`**.
 
-O casamento de cabeçalho é **tolerante** (sem acento, maiúsc./minúsc., espaços e pontuação). Aceita variações como `Executado por` / `Executador por` / `Executor` / `Responsável` e `Nome do teste` / `Nome do teste (inicial)`.
+O reconhecimento é **tolerante** a acento, maiúsculas/minúsculas, espaços e pontuação. Aceita variações como `Executado por` / `Executador por` / `Executor` / `Responsável`, e `Nome do teste` / `Nome do teste (inicial)`.
 
-## Requisitos externos (ações 4 e 5)
+---
 
-As ações de PDF chamam ferramentas de linha de comando, seguindo o mesmo padrão dos scripts do projeto:
+## Para gerar PDF (opcional): programas extras
 
-- **Gerar DET PDF** → [LibreOffice](https://www.libreoffice.org/) (`soffice`). No Windows, o caminho padrão de instalação é detectado automaticamente.
-- **Gerar DET compilado** → [`qpdf`](https://qpdf.sourceforge.io/) para juntar; [Ghostscript](https://www.ghostscript.com/) (`gs`) **opcional** para comprimir (se ausente, o compilado é gerado sem recompressão).
+As ações `[3]`, `[2]` e `[1]` **não precisam de nada além do `det`**. As de PDF, sim:
 
-A geração do `.docx` (ações 1–3) **não** depende de nada externo — apenas do binário.
+- **`[4] Gerar DET em PDF`** → precisa do **[LibreOffice](https://www.libreoffice.org/)** instalado. No Windows, o programa acha sozinho no caminho padrão de instalação.
+- **`[5] Gerar DET compilado`** → precisa do **[qpdf](https://qpdf.sourceforge.io/)** (para juntar). O **[Ghostscript](https://www.ghostscript.com/)** é **opcional** (comprime o resultado; se não tiver, gera sem comprimir).
 
-## Notas e limitações
+Não sabe o que já tem? Rode o programa e use **`[6] Verificar ambiente`** — ele lista o que está `[ ok ]` e o que está `[falta]`.
 
-- **Fuso horário**: a data usa o relógio do sistema em UTC (a `std` do Rust não expõe o fuso). Para a maioria dos fusos a data cai no dia correto; o ponto de ajuste está isolado em `src/util.rs` (`offset_local`).
-- **Nome da release**: o formato é `Release <Mês> <Ano>` (ex.: `Release Julho 2026`). Para mudar, edite `nome_release_atual` em `src/workspace.rs`.
-- **Divisão do compilado**: o corte de 30 MB agrupa **arquivos inteiros** (não divide por página). Um PDF isolado maior que o limite vira uma parte própria.
-- **Portabilidade**: validado com foco no Windows; como usa só `std` + o crate `zip`, roda também em Linux/macOS.
+---
 
-## Estrutura do código
+## Deu problema? Soluções rápidas
+
+| O que aconteceu | O que fazer |
+|---|---|
+| *"det não é reconhecido"* | Instalou? Então **feche e reabra o terminal**. Se persistir, rode de novo `cargo install --path .`. |
+| *"nenhuma planilha informada / não encontrada"* | Coloque o arquivo `teste_selected_....xlsx` **na raiz da pasta de trabalho**. |
+| *"nenhum modelo informado"* | Você precisa de um `modelo_det.docx` dentro da pasta `modelos/`. |
+| *"Selecione uma Release e um ID CARD primeiro"* | Faça a opção **[1]** antes das opções [2]–[5]. |
+| *"LibreOffice não encontrado"* (ação 4) | Instale o LibreOffice. Confira depois em **[6] Verificar ambiente**. |
+| *"qpdf não encontrado"* (ação 5) | Instale o qpdf. O Ghostscript é opcional. |
+| Ao reinstalar: *"Acesso negado"* | Você tem um `det` aberto em outro terminal — **feche-o** (opção `0`) e rode `cargo install --path .` de novo. |
+
+---
+
+## Detalhes técnicos (para desenvolvedores)
+
+Estrutura do código:
 
 ```txt
 src/
-├─ main.rs        # ponto de entrada + laço do menu + dispatch
-├─ menu.rs        # desenho do menu e leitura das respostas
-├─ workspace.rs   # descoberta de Release/, modelos/ e da planilha mais recente
-├─ acoes.rs       # as cinco ações
+├─ main.rs        # binário: laço do menu + dispatch das ações
+├─ lib.rs         # expõe os módulos (permite os testes de integração)
+├─ menu.rs        # desenho do menu, contexto e navegação (voltar / passos)
+├─ workspace.rs   # descoberta de Release/, ID CARD, modelos/ e da planilha recente
+├─ acoes.rs       # as ações (criar subpastas, gerar docx/pdf/compilado)
 ├─ xlsx.rs        # leitor de .xlsx (shared strings + worksheet)
 ├─ docx.rs        # motor de .docx (preenche tokens + insere imagens)
 ├─ pdf.rs         # integração com LibreOffice / qpdf / Ghostscript
-└─ util.rs        # logging, ordenação natural, normalização, datas, XML
+└─ util.rs        # ordenação natural, normalização, datas, XML
+tests/            # um arquivo de teste por funcionalidade (+ fixtures em common/)
 ```
 
 Dependência única: o crate [`zip`](https://crates.io/crates/zip). O `.docx` e o `.xlsx` são manipulados diretamente como ZIP + XML.
 
-## Testes
+Compilar e testar:
 
 ```bash
-
-cargo build 
-
-cargo build --release
-
-cargo test
-
+cargo build            # compila (debug)
+cargo build --release  # compila otimizado (binário em target/release/det)
+cargo test             # roda a suíte de testes
 ```
+
+Notas e limitações:
+
+- **Fuso horário**: a data usa o relógio do sistema em UTC. Para a maioria dos fusos cai no dia certo; o ajuste fica isolado em `src/util.rs` (`offset_local`).
+- **Nome da release**: o formato é `Release <Mês> <Ano>` (ex.: `Release Julho 2026`). Para mudar, edite `criar_nova_release` em `src/menu.rs`.
+- **Divisão do compilado**: o corte de 30 MB agrupa **arquivos inteiros** (não divide por página). Um PDF isolado maior que o limite vira uma parte própria.
+- **Portabilidade**: validado com foco no Windows; como usa só `std` + o crate `zip`, roda também em Linux/macOS.
+
+---
+
+## Como Contribuir
+
+## Referências Técnicas
