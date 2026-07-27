@@ -13,6 +13,7 @@ chama `det`, roda na pasta de trabalho do usuário, é interativo (menu por núm
 
 ```bash
 cargo run                 # abre o menu (pasta atual como area de trabalho; use --base <dir>)
+cargo run -- --fuso -3    # fuso do token {{DATA}} (padrao -3 = Brasilia)
 cargo build --release     # binario otimizado em target/release/det
 cargo install --path .    # instala o comando `det` no PATH (~/.cargo/bin)
 cargo test                # suite de testes (um arquivo por funcionalidade em tests/)
@@ -78,16 +79,26 @@ Regra de dependência: `main` → (`menu`, `acoes`, `workspace`, `pdf`, `util`);
 - **Tokens do modelo** (não quebrar): `{{ID}}`, `{{NOME_TESTE}}`, `{{EXECUTADO_POR}}`, `{{STATUS}}`, `{{DATA}}`, `{{EVIDENCIAS}}`. Texto estático do modelo é escapado antes de reescrever os runs.
 - **Colunas obrigatórias da planilha:** `ID`, `Nome do teste (inicial)`, `Executado por`, `Status nativo`. O casamento é tolerante a acento, caixa, espaços e pontuação (aliases em `xlsx.rs`).
 - `Status nativo = Ignorado` → **não** gera DET.
+- **Um ID só pode resolver para uma subpasta.** Se houver mais de uma com o mesmo
+  prefixo numérico, `gerar_docx` **não escolhe sozinho**: chama o callback
+  `desempatar` (o binário pergunta; os testes usam `sem_desempate`, que pula o ID
+  com aviso). Nunca voltar a confiar na ordem do `read_dir`.
+- **Data (`{{DATA}}`) usa o fuso configurado, não UTC.** Ao mexer em datas, teste com
+  `ymd_de_epoch`, que é puro — `hoje_ymd` depende do relógio e não serve para asserção.
 - Imagens sempre em **ordem natural** (`1, 2, 10`), diretamente na subpasta do ID.
 - **Não versionar** evidências nem saídas: `Release/`, `DET_*`, `teste_selected_*.xlsx` já estão no `.gitignore`. `Cargo.lock` **é** versionado (binário).
 - Nada de scripts com IDs/caminhos fixos: tudo vem por parâmetro, pela planilha ou pela seleção no menu.
 
 ## Onde mexer (pontos comuns)
 
-- **Formato do nome da release** (`Release <Mes> <Ano>`): `criar_nova_release` em `src/menu.rs`.
-- **Fuso/data** (hoje em UTC): `offset_local` em `src/util.rs`.
+- **Formato do nome da release** (`Release <Mes> <Ano>`): `montar_nome_release` em `src/menu.rs`.
+- **Fuso/data**: `FUSO_PADRAO_HORAS` / `offset_local` em `src/util.rs`. Padrão **-3**
+  (Brasília), ajustável por `--fuso <horas>`. A regra pura e testável é
+  `ymd_de_epoch(secs_utc, fuso)`.
 - **Limite do compilado** (default 30 MB): parâmetro de `gerar_compilado` em `src/acoes.rs`.
 - **Menu / navegação**: `selecionar_acao`, `selecionar_release`, `selecionar_card` em `src/menu.rs`.
+- **Desempate de subpasta ambígua**: `escolher_subpasta` em `src/menu.rs` (o prompt) e o
+  parâmetro `desempatar` de `gerar_docx` em `src/acoes.rs` (a regra).
 
 ## Testes
 

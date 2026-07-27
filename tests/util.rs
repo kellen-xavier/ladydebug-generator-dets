@@ -44,6 +44,60 @@ fn calendario_e_data() {
     assert_eq!(&d[5..6], "/");
 }
 
+// ─── BUG 1: virada de dia por fuso horario ─────────────────────────────────
+
+/// Regressao: DET gerado a noite no Brasil nao pode sair com a data de amanha.
+/// 1785112200 = 2026-07-27T00:30:00Z, que em UTC-3 e 26/07/2026 as 21:30.
+#[test]
+fn data_noturna_no_brasil_nao_avanca_um_dia() {
+    const NOITE_26_JUL_BRT: i64 = 1785112200;
+
+    // Com o fuso de Brasilia (o padrao do projeto): ainda e dia 26.
+    assert_eq!(ymd_de_epoch(NOITE_26_JUL_BRT, -3), (2026, 7, 26));
+    assert_eq!(data_ddmmaaaa_de(NOITE_26_JUL_BRT, -3), "26/07/2026");
+
+    // Em UTC (o comportamento antigo, com offset fixo 0) ja seria dia 27 —
+    // este era exatamente o bug.
+    assert_eq!(ymd_de_epoch(NOITE_26_JUL_BRT, 0), (2026, 7, 27));
+}
+
+#[test]
+fn virada_de_dia_no_limite_das_23h59() {
+    // 2026-07-27T02:59:59Z = 26/07/2026 23:59:59 em UTC-3 (ultimo segundo do dia)
+    assert_eq!(ymd_de_epoch(1785121199, -3), (2026, 7, 26));
+    // um segundo depois ja e dia 27 em Brasilia
+    assert_eq!(ymd_de_epoch(1785121200, -3), (2026, 7, 27));
+}
+
+#[test]
+fn virada_de_ano_respeita_o_fuso() {
+    // 2026-01-01T01:00:00Z = 31/12/2025 22:00 em UTC-3
+    assert_eq!(data_ddmmaaaa_de(1767229200, -3), "31/12/2025");
+    assert_eq!(data_ddmmaaaa_de(1767229200, 0), "01/01/2026");
+}
+
+#[test]
+fn fuso_padrao_e_brasilia() {
+    assert_eq!(FUSO_PADRAO_HORAS, -3);
+    assert_eq!(fuso_horas(), -3, "sem --fuso, o padrao deve ser -3");
+}
+
+#[test]
+fn validar_fuso_aceita_faixa_e_rejeita_lixo() {
+    assert_eq!(validar_fuso("-3"), Some(-3));
+    assert_eq!(validar_fuso("0"), Some(0));
+    assert_eq!(validar_fuso("+5"), Some(5));
+    assert_eq!(validar_fuso(" -3 "), Some(-3));
+    assert_eq!(validar_fuso("14"), Some(14));
+    assert_eq!(validar_fuso("-12"), Some(-12));
+
+    assert_eq!(validar_fuso("15"), None, "acima de UTC+14");
+    assert_eq!(validar_fuso("-13"), None, "abaixo de UTC-12");
+    assert_eq!(validar_fuso("abc"), None);
+    assert_eq!(validar_fuso(""), None);
+    assert_eq!(validar_fuso("-3.5"), None, "so horas inteiras");
+}
+
 #[test]
 fn escape_e_unescape_xml() {
     assert_eq!(xml_escape("a<b>&\"'"), "a&lt;b&gt;&amp;&quot;&apos;");
