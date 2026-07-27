@@ -1,6 +1,7 @@
 //! Utilitarios compartilhados: logging, ordenacao natural, normalizacao de
 //! texto, datas e helpers de string/XML. Sem dependencias alem da std.
 
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 // ─── Logging (ASCII, seguro em qualquer console) ───────────────────────────
@@ -112,21 +113,85 @@ pub fn truncar(s: &str, n: usize) -> String {
     s.chars().take(n).collect::<String>().trim().to_string()
 }
 
-// ─── Datas (sem dependencias de fuso) ──────────────────────────────────────
+// ─── Calendario ────────────────────────────────────────────────────────────
 
 const MESES: [&str; 12] = [
     "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho", "Julho",
     "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
-/// (ano, mes, dia) local aproximado (ver nota sobre fuso em `offset_local`).
-pub fn hoje_ymd() -> (i64, u32, u32) {
-    let dur = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
-    let secs = dur.as_secs() as i64 + offset_local();
-    civil_from_days(secs.div_euclid(86400))
+// ─── Fuso horario ──────────────────────────────────────────────────────────
+//
+// A std nao expoe o fuso do sistema e o projeto nao usa crates de data. O fuso
+// e um valor global em horas, com padrao -3 (Horario de Brasilia) e ajustavel
+// pela flag `--fuso <horas>` do binario. Sem isso a data cairia em UTC e todo
+// DET gerado depois das 21h no Brasil sairia com a data do dia seguinte.
+
+/// Fuso padrao: -3 = Horario de Brasilia (o publico-alvo da ferramenta).
+pub const FUSO_PADRAO_HORAS: i64 = -3;
+
+/// Faixa aceita para o fuso, em horas (UTC-12 a UTC+14).
+pub const FUSO_MIN_HORAS: i64 = -12;
+pub const FUSO_MAX_HORAS: i64 = 14;
+
+static FUSO_HORAS: AtomicI64 = AtomicI64::new(FUSO_PADRAO_HORAS);
+
+/// Define o fuso usado por `hoje_ymd`/`data_ddmmaaaa`. Chamado uma vez na
+/// inicializacao do binario (a partir de `--fuso`).
+pub fn definir_fuso(horas: i64) {
+    FUSO_HORAS.store(horas, Ordering::Relaxed);
 }
 
-/// Data local em DD/MM/AAAA.
+/// Fuso atual, em horas.
+pub fn fuso_horas() -> i64 {
+    FUSO_HORAS.load(Ordering::Relaxed)
+}
+
+/// Valida um fuso vindo da linha de comando ("-3", "+5", "0").
+pub fn validar_fuso(s: &str) -> Option<i64> {
+    let t = s.trim().trim_start_matches('+');
+    let h: i64 = t.parse().ok()?;
+    if (FUSO_MIN_HORAS..=FUSO_MAX_HORAS).contains(&h) {
+        Some(h)
+    } else {
+        None
+    }
+}
+
+/// Offset local em segundos, derivado do fuso configurado.
+fn offset_local() -> i64 {
+    fuso_horas() * 3600
+}
+
+// ─── Datas ─────────────────────────────────────────────────────────────────
+
+/// (ano, mes, dia) para um instante epoch (UTC) num dado fuso, em horas.
+/// Funcao pura — e o ponto de teste da regra de virada de dia.
+pub fn ymd_de_epoch(secs_utc: i64, fuso: i64) -> (i64, u32, u32) {
+    let local = secs_utc + fuso * 3600;
+    civil_from_days(local.div_euclid(86400))
+}
+
+/// DD/MM/AAAA para um instante epoch (UTC) num dado fuso. Funcao pura.
+pub fn data_ddmmaaaa_de(secs_utc: i64, fuso: i64) -> String {
+    let (a, m, d) = ymd_de_epoch(secs_utc, fuso);
+    format!("{d:02}/{m:02}/{a:04}")
+}
+
+/// Segundos desde o epoch (UTC), agora.
+fn agora_epoch() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or_default()
+}
+
+/// (ano, mes, dia) local, usando o fuso configurado.
+pub fn hoje_ymd() -> (i64, u32, u32) {
+    civil_from_days((agora_epoch() + offset_local()).div_euclid(86400))
+}
+
+/// Data local em DD/MM/AAAA, usando o fuso configurado.
 pub fn data_ddmmaaaa() -> String {
     let (a, m, d) = hoje_ymd();
     format!("{d:02}/{m:02}/{a:04}")
@@ -135,12 +200,6 @@ pub fn data_ddmmaaaa() -> String {
 /// Nome do mes em portugues (sem acento, seguro para nome de pasta).
 pub fn nome_mes(m: u32) -> &'static str {
     MESES.get((m as usize).wrapping_sub(1)).copied().unwrap_or("Mes")
-}
-
-/// Offset local em segundos. A std nao expoe o fuso; mantemos UTC (a data
-/// cai no dia correto para a maioria dos fusos). Ajuste aqui se necessario.
-fn offset_local() -> i64 {
-    0
 }
 
 /// Dias desde 1970-01-01 -> (ano, mes, dia). Algoritmo de Howard Hinnant.

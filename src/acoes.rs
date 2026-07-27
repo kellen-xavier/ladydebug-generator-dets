@@ -33,6 +33,19 @@ pub fn criar_subpastas(card_dir: &Path, planilha: &Path) -> Result<usize, String
         if destino.is_dir() {
             log(&format!("Linha {n}: ja existe '{pasta}'"));
         } else {
+            // Ja existe outra pasta com o mesmo prefixo de ID? Normalmente o
+            // nome do teste mudou na planilha. Criar a segunda pasta deixaria
+            // o ID ambiguo na hora de gerar o DET — avisa antes.
+            let existentes = achar_subpastas(card_dir, &id);
+            if !existentes.is_empty() {
+                let nomes: Vec<&str> = existentes.iter().map(|p| nome_de(p)).collect();
+                warn(&format!(
+                    "Linha {n}: ID {id} ja tem a pasta '{}' — criando tambem '{pasta}'. \
+                     Na geracao do DET sera preciso escolher entre elas; \
+                     considere apagar ou renomear a que nao usa.",
+                    nomes.join("', '")
+                ));
+            }
             fs::create_dir_all(&destino)
                 .map_err(|e| format!("nao criei '{}': {e}", destino.display()))?;
             ok(&format!("Subpasta criada: {pasta}"));
@@ -50,11 +63,26 @@ pub struct ResumoDocx {
     pub avisos: usize,
 }
 
+/// Callback de desempate: chamado quando mais de uma subpasta tem o mesmo
+/// prefixo numerico de ID. Recebe (id, nome do teste, candidatas em ordem
+/// natural) e devolve a escolhida, ou `None` para pular o ID.
+///
+/// Existe para manter `gerar_docx` livre de I/O de terminal: o binario passa um
+/// callback que pergunta ao usuario, os testes passam um deterministico.
+pub type Desempate<'a> = &'a dyn Fn(&str, &str, &[PathBuf]) -> Option<PathBuf>;
+
+/// Desempate que nunca escolhe — o ID ambiguo e pulado com aviso.
+/// Usado nos testes e como fallback nao interativo.
+pub fn sem_desempate(_id: &str, _nome: &str, _candidatas: &[PathBuf]) -> Option<PathBuf> {
+    None
+}
+
 pub fn gerar_docx(
     card_dir: &Path,
     planilha: &Path,
     modelo: &Path,
     legendas: bool,
+    desempatar: Desempate,
 ) -> Result<ResumoDocx, String> {
     let linhas = read_xlsx(planilha)?;
     if linhas.is_empty() {
@@ -86,14 +114,37 @@ pub fn gerar_docx(
             continue;
         }
 
-        let subpasta = match achar_subpasta(card_dir, &id) {
-            Some(p) => p,
-            None => {
+        // Pode haver mais de uma subpasta com o mesmo prefixo de ID (o nome e
+        // truncado em 10 chars, entao renomear o teste na planilha cria uma
+        // segunda pasta). Nunca escolher "a primeira que o read_dir devolver":
+        // isso gravaria a evidencia na pasta errada em silencio.
+        let candidatas = achar_subpastas(card_dir, &id);
+        let subpasta = match candidatas.len() {
+            0 => {
                 warn(&format!(
                     "Linha {n}: ID {id} '{nome}' -> subpasta nao encontrada -> pulado."
                 ));
                 r.avisos += 1;
                 continue;
+            }
+            1 => candidatas.into_iter().next().unwrap_or_default(),
+            qtd => {
+                warn(&format!(
+                    "Linha {n}: ID {id} '{nome}' -> {qtd} subpastas com o prefixo '{id}'."
+                ));
+                match desempatar(&id, &nome, &candidatas) {
+                    Some(p) => {
+                        log(&format!("Linha {n}: ID {id} -> usando '{}'.", nome_de(&p)));
+                        p
+                    }
+                    None => {
+                        warn(&format!(
+                            "Linha {n}: ID {id} '{nome}' -> ambiguidade nao resolvida -> pulado."
+                        ));
+                        r.avisos += 1;
+                        continue;
+                    }
+                }
             }
         };
 
@@ -259,20 +310,21 @@ fn coletar_arquivos(dir: &Path, ext: &str, prefixo: Option<&str>) -> Vec<PathBuf
     out
 }
 
-/// Acha a subpasta cujo prefixo numerico e igual a ID.
-fn achar_subpasta(dir: &Path, id: &str) -> Option<PathBuf> {
+/// Acha **todas** as subpastas cujo prefixo numerico e igual a ID, em ordem
+/// natural (deterministica — `read_dir` nao tem ordem garantida).
+/// `pub` para ser exercitado nos testes de integracao.
+pub fn achar_subpastas(dir: &Path, id: &str) -> Vec<PathBuf> {
     let alvo = id.trim();
-    for e in fs::read_dir(dir).ok()?.flatten() {
-        let path = e.path();
-        if path.is_dir() {
-            if let Some(nome) = path.file_name().and_then(|s| s.to_str()) {
-                if prefixo_numerico(nome).as_deref() == Some(alvo) {
-                    return Some(path);
-                }
-            }
-        }
-    }
-    None
+    let mut achadas: Vec<PathBuf> = match fs::read_dir(dir) {
+        Ok(rd) => rd
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.is_dir() && prefixo_numerico(nome_de(p)).as_deref() == Some(alvo))
+            .collect(),
+        Err(_) => Vec::new(),
+    };
+    achadas.sort_by(|a, b| natural_key(nome_de(a)).cmp(&natural_key(nome_de(b))));
+    achadas
 }
 
 fn prefixo_numerico(nome: &str) -> Option<String> {

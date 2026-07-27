@@ -38,6 +38,21 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
+    // Fuso opcional via `--fuso <horas>`; padrao = -3 (Horario de Brasilia).
+    // Sem isso a data cairia em UTC e o DET gerado a noite sairia com a data
+    // do dia seguinte.
+    if let Some(v) = arg_valor(&args, "--fuso") {
+        match validar_fuso(&v) {
+            Some(h) => definir_fuso(h),
+            None => {
+                erro(&format!(
+                    "fuso invalido: '{v}'. Informe horas inteiras entre {FUSO_MIN_HORAS} e {FUSO_MAX_HORAS} (ex.: --fuso -3)."
+                ));
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+
     // Base opcional via `--base <dir>`; padrao = diretorio atual.
     let base = match arg_valor(&args, "--base") {
         Some(v) => PathBuf::from(v),
@@ -149,7 +164,8 @@ fn executar_3(ws: &Workspace, ctx: &Contexto) {
         None => return,
     };
     let legendas = menu::perguntar_sn("  Adicionar legenda (nome do arquivo) sob cada imagem?");
-    match acoes::gerar_docx(card, &planilha, &modelo, legendas) {
+    let desempatar = |id: &str, nome: &str, cands: &[PathBuf]| menu::escolher_subpasta(id, nome, cands);
+    match acoes::gerar_docx(card, &planilha, &modelo, legendas, &desempatar) {
         Ok(r) => log(&format!(
             "Concluido: {} gerado(s), {} ignorado(s), {} com aviso.",
             r.gerados, r.ignorados, r.avisos
@@ -197,6 +213,15 @@ fn verificar_ambiente() {
         false,
         "opcional: comprime o compilado",
     );
+    println!("{barra}");
+    let f = fuso_horas();
+    let sinal = if f >= 0 { "+" } else { "-" };
+    println!(
+        "  Data de hoje: {}  (fuso UTC{sinal}{})   <- vai no token {{{{DATA}}}}",
+        data_ddmmaaaa(),
+        f.abs()
+    );
+    println!("  Data errada? Feche e rode com --fuso <horas>, ex.: --fuso -3");
     println!("{barra}");
     println!("  Gerar .docx (acoes 1-3) nao depende de nada externo.");
 }
@@ -255,8 +280,11 @@ fn resolver_modelo(ws: &Workspace) -> Option<PathBuf> {
 fn ajuda(prog: &str) {
     println!(
         "Gestor de Documentos de Testes (DET)\n\n\
-         Uso:\n  {prog} [--base <pasta_de_trabalho>]\n\n\
-         Sem argumentos, usa a pasta atual como area de trabalho.\n\
+         Uso:\n  {prog} [--base <pasta_de_trabalho>] [--fuso <horas>]\n\n\
+         Opcoes:\n\
+           --base <dir>     Pasta de trabalho. Padrao: a pasta atual.\n\
+           --fuso <horas>   Fuso horario em horas inteiras, de {FUSO_MIN_HORAS} a {FUSO_MAX_HORAS}.\n\
+                            Padrao: {FUSO_PADRAO_HORAS} (Horario de Brasilia). Afeta o token {{{{DATA}}}}.\n\n\
          Abra o terminal na sua pasta de trabalho e rode o comando para ver o menu.\n\n\
          Estrutura esperada da area de trabalho:\n\
            modelos/                modelo_det.docx (com tokens {{{{ID}}}}, {{{{EVIDENCIAS}}}}, ...)\n\

@@ -5,7 +5,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use crate::util::{log, nome_mes, ok};
+use crate::util::{hoje_ymd, log, nome_mes, ok};
 use crate::workspace::{nome_de, Workspace};
 
 /// Resultado de um sub-menu de selecao.
@@ -215,8 +215,68 @@ pub fn selecionar_card(ws: &Workspace, release: &Path) -> Nav<PathBuf> {
     }
 }
 
+// ─── Desempate de subpastas com o mesmo prefixo de ID ──────────────────────
+
+/// Pergunta qual subpasta usar quando mais de uma tem o mesmo prefixo de ID.
+/// Devolve `None` para pular o ID (opcao 0 ou entrada invalida/EOF).
+///
+/// Ligado em `main.rs` como callback de `acoes::gerar_docx`.
+pub fn escolher_subpasta(id: &str, nome: &str, candidatas: &[PathBuf]) -> Option<PathBuf> {
+    let barra = "-".repeat(52);
+    println!("\n{barra}");
+    println!("  Atencao: mais de uma subpasta para o ID {id} ('{nome}')");
+    println!("{barra}");
+    println!("  Isso costuma acontecer quando o nome do teste mudou na planilha");
+    println!("  e uma segunda pasta foi criada. Escolha onde gravar o DET:");
+    for (i, c) in candidatas.iter().enumerate() {
+        println!("   [{}] {}", i + 1, nome_de(c));
+    }
+    println!("   [0] Pular este ID (nao gerar DET agora)");
+    let resp = perguntar_com_default("  Opcao", "0");
+    match resp.trim().parse::<usize>() {
+        Ok(i) if i >= 1 && i <= candidatas.len() => Some(candidatas[i - 1].clone()),
+        _ => None,
+    }
+}
+
+// ─── Regras puras de criacao de release (testaveis) ────────────────────────
+
+/// Faixa de anos aceita para uma release.
+pub const ANO_MIN: i64 = 2000;
+pub const ANO_MAX: i64 = 2100;
+
+/// Valida o ano digitado. Aceita so digitos, dentro de ANO_MIN..=ANO_MAX.
+pub fn validar_ano(s: &str) -> Option<i64> {
+    let t = s.trim();
+    if t.is_empty() || !t.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    let ano: i64 = t.parse().ok()?;
+    if (ANO_MIN..=ANO_MAX).contains(&ano) {
+        Some(ano)
+    } else {
+        None
+    }
+}
+
+/// Valida o mes digitado (1..=12).
+pub fn validar_mes(s: &str) -> Option<u32> {
+    match s.trim().parse::<u32>() {
+        Ok(v) if (1..=12).contains(&v) => Some(v),
+        _ => None,
+    }
+}
+
+/// Nome padronizado da pasta de release: "Release <Mes> <Ano>".
+pub fn montar_nome_release(mes: u32, ano: i64) -> String {
+    format!("Release {} {}", nome_mes(mes), ano)
+}
+
 /// Cria uma nova pasta de release `Release <Mes> <Ano>` a partir de mes/ano.
+/// Mes e ano sugeridos = os de hoje (no fuso configurado).
 fn criar_nova_release(ws: &Workspace) -> Option<PathBuf> {
+    let (ano_hoje, mes_hoje, _) = hoje_ymd();
+
     println!("\n  Meses:");
     for m in 1..=12u32 {
         print!("   [{m:>2}] {:<10}", nome_mes(m));
@@ -224,20 +284,23 @@ fn criar_nova_release(ws: &Workspace) -> Option<PathBuf> {
             println!();
         }
     }
-    let mnum = perguntar_com_default("  Numero do mes (1-12)", "");
-    let m: u32 = match mnum.parse() {
-        Ok(v) if (1..=12).contains(&v) => v,
-        _ => {
-            println!("  Mes invalido.");
+    let mnum = perguntar_com_default("  Numero do mes (1-12)", &mes_hoje.to_string());
+    let m: u32 = match validar_mes(&mnum) {
+        Some(v) => v,
+        None => {
+            println!("  Mes invalido: informe um numero de 1 a 12.");
             return None;
         }
     };
-    let ano = perguntar_com_default("  Ano", "2026");
-    if ano.is_empty() || !ano.chars().all(|c| c.is_ascii_digit()) {
-        println!("  Ano invalido.");
-        return None;
-    }
-    let nome = format!("Release {} {}", nome_mes(m), ano);
+    let resp_ano = perguntar_com_default("  Ano", &ano_hoje.to_string());
+    let ano = match validar_ano(&resp_ano) {
+        Some(a) => a,
+        None => {
+            println!("  Ano invalido: informe um ano entre {ANO_MIN} e {ANO_MAX}.");
+            return None;
+        }
+    };
+    let nome = montar_nome_release(m, ano);
     let destino = ws.dir_release.join(&nome);
     if destino.is_dir() {
         log(&format!("Release ja existe: {nome}"));
