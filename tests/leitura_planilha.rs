@@ -3,7 +3,71 @@
 
 mod common;
 
+use gestor_det::workspace::Workspace;
 use gestor_det::xlsx::{read_xlsx, HeaderMap};
+
+// ─── Descoberta automatica da planilha dentro da pasta do card ─────────────
+
+/// Cria um card e devolve (workspace, caminho_do_card).
+fn card_de_teste(tw: &common::TempWs) -> (Workspace, std::path::PathBuf) {
+    let ws = Workspace::detectar(&tw.raiz);
+    let card = tw.criar_dir("Release/Release Julho 2026/ID CARD 1");
+    (ws, card)
+}
+
+#[test]
+fn acha_planilha_dentro_da_pasta_do_card() {
+    let tw = common::TempWs::nova();
+    let (ws, card) = card_de_teste(&tw);
+    common::escrever_xlsx(&card.join("teste_selected_x.xlsx"), &[vec!["ID"], vec!["13"]]);
+
+    let achada = ws.achar_planilha_em(&card).expect("deveria achar a planilha");
+    assert_eq!(
+        achada.file_name().unwrap().to_string_lossy(),
+        "teste_selected_x.xlsx"
+    );
+}
+
+#[test]
+fn pasta_sem_xlsx_devolve_none() {
+    let tw = common::TempWs::nova();
+    let (ws, card) = card_de_teste(&tw);
+    assert!(ws.achar_planilha_em(&card).is_none());
+}
+
+#[test]
+fn prefere_teste_selected_sobre_outro_xlsx() {
+    let tw = common::TempWs::nova();
+    let (ws, card) = card_de_teste(&tw);
+    common::escrever_xlsx(&card.join("relatorio.xlsx"), &[vec!["X"]]);
+    // nome com prefixo antes de "teste_selected" tambem deve ser reconhecido
+    common::escrever_xlsx(&card.join("execucoes teste_selected_30_06.xlsx"), &[vec!["ID"]]);
+
+    let achada = ws.achar_planilha_em(&card).unwrap();
+    assert!(achada
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .contains("teste_selected"));
+}
+
+#[test]
+fn um_unico_xlsx_sem_teste_selected_ainda_e_usado() {
+    let tw = common::TempWs::nova();
+    let (ws, card) = card_de_teste(&tw);
+    common::escrever_xlsx(&card.join("planilha_dados.xlsx"), &[vec!["ID"]]);
+    assert!(ws.achar_planilha_em(&card).is_some());
+}
+
+#[test]
+fn varios_xlsx_sem_teste_selected_e_ambiguo_none() {
+    let tw = common::TempWs::nova();
+    let (ws, card) = card_de_teste(&tw);
+    common::escrever_xlsx(&card.join("a.xlsx"), &[vec!["ID"]]);
+    common::escrever_xlsx(&card.join("b.xlsx"), &[vec!["ID"]]);
+    // ambiguo: sem "teste_selected" e mais de um -> deixa o usuario escolher
+    assert!(ws.achar_planilha_em(&card).is_none());
+}
 
 #[test]
 fn le_linhas_e_mapeia_cabecalhos_tolerantes() {
