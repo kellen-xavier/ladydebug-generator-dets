@@ -63,23 +63,44 @@ impl Workspace {
         docs.into_iter().next()
     }
 
-    /// Planilha `teste_selected_*.xlsx` mais recente na raiz (por data de mod.).
-    pub fn achar_planilha_recente(&self) -> Option<PathBuf> {
-        let mut cand: Vec<(SystemTime, PathBuf)> = fs::read_dir(&self.raiz)
+    /// Planilha `.xlsx` mais recente dentro de `dir` (por data de modificacao).
+    ///
+    /// Prefere nomes que contenham `teste_selected` (tolerante a prefixo, ex.:
+    /// "execucoes teste_selected_...xlsx"). Se nenhum contiver mas houver
+    /// exatamente **um** `.xlsx`, usa esse. Com varios `.xlsx` nao-teste_selected
+    /// devolve `None` (ambiguo) para o chamador pedir ao usuario.
+    pub fn achar_planilha_em(&self, dir: &Path) -> Option<PathBuf> {
+        let xlsx: Vec<(SystemTime, PathBuf)> = fs::read_dir(dir)
             .ok()?
             .flatten()
             .map(|e| e.path())
-            .filter(|p| {
-                ext_eh(p, "xlsx")
-                    && nome_de(p).to_ascii_lowercase().starts_with("teste_selected")
-            })
+            .filter(|p| ext_eh(p, "xlsx"))
             .filter_map(|p| {
                 let t = fs::metadata(&p).and_then(|m| m.modified()).ok()?;
                 Some((t, p))
             })
             .collect();
-        cand.sort_by(|a, b| a.0.cmp(&b.0));
-        cand.into_iter().last().map(|(_, p)| p)
+        if xlsx.is_empty() {
+            return None;
+        }
+        let preferidas: Vec<(SystemTime, PathBuf)> = xlsx
+            .iter()
+            .filter(|(_, p)| nome_de(p).to_ascii_lowercase().contains("teste_selected"))
+            .cloned()
+            .collect();
+        let conjunto = if !preferidas.is_empty() {
+            preferidas
+        } else if xlsx.len() == 1 {
+            xlsx
+        } else {
+            return None;
+        };
+        conjunto.into_iter().max_by(|a, b| a.0.cmp(&b.0)).map(|(_, p)| p)
+    }
+
+    /// Planilha mais recente na raiz da area de trabalho (fallback).
+    pub fn achar_planilha_recente(&self) -> Option<PathBuf> {
+        self.achar_planilha_em(&self.raiz)
     }
 }
 

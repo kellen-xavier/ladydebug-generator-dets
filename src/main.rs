@@ -140,7 +140,7 @@ fn executar_2(ws: &Workspace, ctx: &Contexto) {
         Some(c) => c,
         None => return,
     };
-    let planilha = match resolver_planilha(ws) {
+    let planilha = match resolver_planilha(ws, card) {
         Some(p) => p,
         None => return,
     };
@@ -155,7 +155,7 @@ fn executar_3(ws: &Workspace, ctx: &Contexto) {
         Some(c) => c,
         None => return,
     };
-    let planilha = match resolver_planilha(ws) {
+    let planilha = match resolver_planilha(ws, card) {
         Some(p) => p,
         None => return,
     };
@@ -239,14 +239,21 @@ fn status(nome: &str, presente: bool, obrigatorio: bool, obs: &str) {
 
 // ─── Resolucao de planilha e modelo (com confirmacao) ──────────────────────
 
-fn resolver_planilha(ws: &Workspace) -> Option<PathBuf> {
+fn resolver_planilha(ws: &Workspace, card: &Path) -> Option<PathBuf> {
+    // Usabilidade: primeiro procura a planilha DENTRO da pasta do card e usa
+    // automaticamente, sem pedir o caminho.
+    if let Some(p) = ws.achar_planilha_em(card) {
+        ok(&format!("Planilha encontrada na pasta do card: {}", nome_de(&p)));
+        return Some(p);
+    }
+    // Fallback: raiz da area de trabalho, com confirmacao/entrada manual.
     let sugestao = ws
         .achar_planilha_recente()
         .map(|p| p.display().to_string())
         .unwrap_or_default();
     let resp = menu::perguntar_com_default("  Planilha .xlsx", &sugestao);
     if resp.is_empty() {
-        erro("nenhuma planilha informada.");
+        erro("nenhuma planilha encontrada (coloque um teste_selected_*.xlsx na pasta do card).");
         return None;
     }
     let p = PathBuf::from(&resp);
