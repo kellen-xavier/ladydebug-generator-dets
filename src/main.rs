@@ -81,18 +81,22 @@ fn main() -> ExitCode {
                 menu::pausar();
             }
             3 => {
-                executar_3(&ws, &ctx);
+                executar_descompactar(&ctx);
                 menu::pausar();
             }
             4 => {
-                executar_4(&ctx);
+                executar_3(&ws, &ctx); // Gerar DET (.docx)
                 menu::pausar();
             }
             5 => {
-                executar_5(&ctx);
+                executar_4(&ctx); // Gerar DET em PDF
                 menu::pausar();
             }
             6 => {
+                executar_5(&ctx); // Gerar DET compilado
+                menu::pausar();
+            }
+            7 => {
                 verificar_ambiente();
                 menu::pausar();
             }
@@ -146,6 +150,20 @@ fn executar_2(ws: &Workspace, ctx: &Contexto) {
     };
     match acoes::criar_subpastas(card, &planilha) {
         Ok(n) => log(&format!("Concluido: {n} subpasta(s) criada(s).")),
+        Err(e) => erro(&e),
+    }
+}
+
+fn executar_descompactar(ctx: &Contexto) {
+    let card = match exigir_card(ctx) {
+        Some(c) => c,
+        None => return,
+    };
+    match acoes::descompactar_zips(card) {
+        Ok(r) => log(&format!(
+            "Concluido: {} zip(s), {} imagem(ns) extraida(s), {} mantida(s), {} falha(s).",
+            r.zips, r.imagens, r.mantidas, r.falhas
+        )),
         Err(e) => erro(&e),
     }
 }

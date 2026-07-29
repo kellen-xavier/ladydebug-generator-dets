@@ -2,7 +2,10 @@
 //! selecionado (que contem as subpastas `ID - nome` de cada teste).
 
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
+
+use zip::ZipArchive;
 
 use crate::docx::Docx;
 use crate::pdf;
@@ -53,6 +56,126 @@ pub fn criar_subpastas(card_dir: &Path, planilha: &Path) -> Result<usize, String
         }
     }
     Ok(criadas)
+}
+
+// ─── Descompactar .zip de evidencias ───────────────────────────────────────
+
+/// Resumo de uma passada de descompactacao.
+#[derive(Default)]
+pub struct ResumoZip {
+    pub zips: usize,     // .zip processados (que tinham imagens)
+    pub imagens: usize,  // imagens extraidas
+    pub mantidas: usize, // imagens ja existentes, preservadas (nao sobrescreve)
+    pub falhas: usize,   // .zip que deram erro
+}
+
+const IMG_EXTS_ZIP: [&str; 8] = ["png", "jpg", "jpeg", "gif", "bmp", "webp", "tif", "tiff"];
+
+fn nome_eh_imagem(nome: &str) -> bool {
+    nome.rsplit('.')
+        .next()
+        .map(|ext| IMG_EXTS_ZIP.iter().any(|e| e.eq_ignore_ascii_case(ext)))
+        .unwrap_or(false)
+}
+
+/// Extrai as imagens de UM `.zip` para a pasta dele, achatando (usa so o nome
+/// do arquivo — imune a *zip-slip* por construcao) e **sem sobrescrever**
+/// arquivos existentes. Devolve (imagens_extraidas, imagens_mantidas_por_colisao).
+pub fn descompactar_zip(zip_path: &Path) -> Result<(usize, usize), String> {
+    let destino = zip_path.parent().unwrap_or_else(|| Path::new("."));
+    let file =
+        fs::File::open(zip_path).map_err(|e| format!("nao abri '{}': {e}", zip_path.display()))?;
+    let mut zip = ZipArchive::new(file).map_err(|e| format!("zip invalido: {e}"))?;
+
+    let mut imagens = 0usize;
+    let mut mantidas = 0usize;
+    for i in 0..zip.len() {
+        let mut entrada = zip.by_index(i).map_err(|e| format!("erro no zip: {e}"))?;
+        if !entrada.is_file() {
+            continue;
+        }
+        let nome_interno = entrada.name().to_string();
+        let base = match nome_interno.rsplit(|c| c == '/' || c == '\\').next() {
+            Some(b) if !b.is_empty() => b,
+            _ => continue,
+        };
+        if !nome_eh_imagem(base) {
+            continue; // "somente as imagens": ignora .txt/.json/etc.
+        }
+        let alvo = destino.join(base);
+        if alvo.exists() {
+            mantidas += 1; // nunca sobrescreve evidencia existente
+            continue;
+        }
+        let mut buf = Vec::new();
+        entrada.read_to_end(&mut buf).map_err(|e| format!("erro lendo {base}: {e}"))?;
+        fs::write(&alvo, &buf).map_err(|e| format!("nao gravei {}: {e}", alvo.display()))?;
+        imagens += 1;
+    }
+    Ok((imagens, mantidas))
+}
+
+/// Descompacta os `.zip` das subpastas do card: extrai as imagens direto na
+/// subpasta e **apaga o `.zip`** apos extrair. Nao sobrescreve imagens
+/// existentes; um `.zip` sem nenhuma imagem e mantido (nada a perder).
+pub fn descompactar_zips(card_dir: &Path) -> Result<ResumoZip, String> {
+    let zips = achar_zips(card_dir);
+    if zips.is_empty() {
+        return Err("nenhum .zip encontrado nas subpastas do card.".into());
+    }
+    let mut r = ResumoZip::default();
+    for z in &zips {
+        match descompactar_zip(z) {
+            Ok((0, 0)) => warn(&format!("{}: nenhuma imagem no zip -> mantido.", nome_de(z))),
+            Ok((imgs, mant)) => {
+                if let Err(e) = fs::remove_file(z) {
+                    warn(&format!("extrai mas nao apaguei {}: {e}", nome_de(z)));
+                }
+                let pasta = z.parent().map(nome_de).unwrap_or("");
+                ok(&format!(
+                    "{} -> {imgs} imagem(ns) em '{pasta}' (zip removido)",
+                    nome_de(z)
+                ));
+                r.zips += 1;
+                r.imagens += imgs;
+                r.mantidas += mant;
+            }
+            Err(e) => {
+                warn(&format!("{}: {e}", nome_de(z)));
+                r.falhas += 1;
+            }
+        }
+    }
+    Ok(r)
+}
+
+/// Acha todos os `.zip` nas subpastas do card, em ordem natural.
+fn achar_zips(card_dir: &Path) -> Vec<PathBuf> {
+    let mut subs: Vec<PathBuf> = match fs::read_dir(card_dir) {
+        Ok(rd) => rd.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect(),
+        Err(_) => return Vec::new(),
+    };
+    subs.sort_by(|a, b| natural_key(nome_de(a)).cmp(&natural_key(nome_de(b))));
+    let mut zips = Vec::new();
+    for sub in subs {
+        let mut z: Vec<PathBuf> = match fs::read_dir(&sub) {
+            Ok(rd) => rd
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| {
+                    p.is_file()
+                        && p.extension()
+                            .and_then(|s| s.to_str())
+                            .map(|s| s.eq_ignore_ascii_case("zip"))
+                            .unwrap_or(false)
+                })
+                .collect(),
+            Err(_) => Vec::new(),
+        };
+        z.sort_by(|a, b| natural_key(nome_de(a)).cmp(&natural_key(nome_de(b))));
+        zips.extend(z);
+    }
+    zips
 }
 
 // ─── Gerar DET - docx ───────────────────────────────────────────────────────
