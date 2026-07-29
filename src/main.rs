@@ -220,28 +220,52 @@ fn executar_5(ctx: &Contexto) {
 
 fn verificar_ambiente() {
     let barra = "=".repeat(58);
+    let linha = "-".repeat(58);
+
+    let tem_libreoffice = pdf::soffice_bin().is_some();
+    let tem_qpdf = pdf::find_in_path(&["qpdf"]).is_some();
+    let tem_gs = pdf::find_in_path(&["gs", "gswin64c", "gswin32c"]).is_some();
+
     println!("\n{barra}");
-    println!("  Ambiente");
+    println!("  Ambiente — o que a aplicacao precisa");
     println!("{barra}");
-    status("LibreOffice (soffice)", pdf::soffice_bin().is_some(), true, "necessario p/ [4] Gerar DET PDF");
-    status("qpdf", pdf::find_in_path(&["qpdf"]).is_some(), true, "necessario p/ [5] Gerar DET compilado");
-    status(
-        "Ghostscript (gs)",
-        pdf::find_in_path(&["gs", "gswin64c", "gswin32c"]).is_some(),
-        false,
-        "opcional: comprime o compilado",
-    );
-    println!("{barra}");
+    println!("  Nucleo (funciona SEM instalar nada):");
+    println!("    [ ok  ] Organizar, descompactar .zip e gerar DET .docx");
+    println!("            -> acoes [1] [2] [3] [4]");
+    println!();
+    println!("  Exportar em PDF (so se for usar [5] ou [6]):");
+    status("LibreOffice", tem_libreoffice, true, "-> [5] Gerar DET em PDF");
+    status("qpdf", tem_qpdf, true, "-> [6] Gerar DET compilado");
+    status("Ghostscript", tem_gs, false, "-> comprime o compilado (opcional)");
+    println!("{linha}");
+
     let f = fuso_horas();
     let sinal = if f >= 0 { "+" } else { "-" };
     println!(
-        "  Data de hoje: {}  (fuso UTC{sinal}{})   <- vai no token {{{{DATA}}}}",
+        "  Data de hoje: {}  (fuso UTC{sinal}{})  -> token {{{{DATA}}}}",
         data_ddmmaaaa(),
         f.abs()
     );
-    println!("  Data errada? Feche e rode com --fuso <horas>, ex.: --fuso -3");
+    println!("  Data errada? Feche e rode com --fuso <horas> (ex.: --fuso -3)");
+    println!("{linha}");
+
+    // Resumo acionavel: o nucleo sempre esta pronto; PDF so se faltar algo.
+    println!("  >> Pronto para as acoes [1] a [4] (organizar + gerar .docx).");
+    let mut faltam: Vec<&str> = Vec::new();
+    if !tem_libreoffice {
+        faltam.push("LibreOffice");
+    }
+    if !tem_qpdf {
+        faltam.push("qpdf");
+    }
+    if faltam.is_empty() {
+        println!("  >> PDF tambem esta pronto: acoes [5] e [6] liberadas.");
+    } else {
+        println!("  >> Para exportar em PDF falta: {}.", faltam.join(", "));
+        println!("     Feche esta janela e abra pelo \"ABRIR MENU.bat\": ele");
+        println!("     oferece instalar automaticamente so o que faltar.");
+    }
     println!("{barra}");
-    println!("  Gerar .docx (acoes 1-3) nao depende de nada externo.");
 }
 
 fn status(nome: &str, presente: bool, obrigatorio: bool, obs: &str) {
