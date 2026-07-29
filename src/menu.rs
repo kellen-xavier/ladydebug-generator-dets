@@ -98,16 +98,17 @@ pub fn selecionar_acao(ws: &Workspace, release: Option<&Path>, card: Option<&Pat
     println!("  -- Organizar {}", "-".repeat(40));
     println!("   [1] Selecionar / criar Release e ID CARD{dica}");
     println!("   [2] Criar subpastas dos testes  (ID - nome)");
+    println!("   [3] Descompactar .zip de evidencias  (extrai imagens e apaga o zip)");
     println!("  -- Gerar {}", "-".repeat(44));
-    println!("   [3] Gerar DET (.docx)");
-    println!("   [4] Gerar DET em PDF");
-    println!("   [5] Gerar DET compilado (PDF unico)");
+    println!("   [4] Gerar DET (.docx)");
+    println!("   [5] Gerar DET em PDF");
+    println!("   [6] Gerar DET compilado (PDF unico)");
     println!("  {linha}");
-    println!("   [6] Verificar ambiente");
+    println!("   [7] Verificar ambiente");
     println!("   [0] Sair");
     println!("{barra}");
     loop {
-        print!("  Selecione uma opcao [0-6]: ");
+        print!("  Selecione uma opcao [0-7]: ");
         let _ = io::stdout().flush();
         let r = ler_linha();
         if r.is_empty() {
@@ -122,7 +123,8 @@ pub fn selecionar_acao(ws: &Workspace, release: Option<&Path>, card: Option<&Pat
             "4" => return 4,
             "5" => return 5,
             "6" => return 6,
-            outro => println!("  Opcao invalida: '{outro}'. Digite um numero de 0 a 6."),
+            "7" => return 7,
+            outro => println!("  Opcao invalida: '{outro}'. Digite um numero de 0 a 7."),
         }
     }
 }

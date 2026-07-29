@@ -67,6 +67,11 @@ fn zipar(caminho: &Path, entradas: &[(&str, &[u8])]) {
     zip.finish().unwrap();
 }
 
+/// Escreve um `.zip` qualquer com as entradas dadas (nome interno -> bytes).
+pub fn escrever_zip(caminho: &Path, entradas: &[(&str, &[u8])]) {
+    zipar(caminho, entradas);
+}
+
 /// Escreve um .xlsx minimo (celulas inlineStr). A 1a linha e o cabecalho.
 pub fn escrever_xlsx(caminho: &Path, linhas: &[Vec<&str>]) {
     let mut sheet = String::from(
