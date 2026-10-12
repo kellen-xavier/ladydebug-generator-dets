@@ -76,8 +76,8 @@ Regra de dependência: `main` → (`menu`, `acoes`, `workspace`, `pdf`, `util`);
 ## Convenções e regras
 
 - Mensagens ao usuário em **português**; nomes de função/variável em português; comentários idem.
-- **Tokens do modelo** (não quebrar): `{{ID}}`, `{{NOME_TESTE}}`, `{{EXECUTADO_POR}}`, `{{STATUS}}`, `{{DATA}}`, `{{EVIDENCIAS}}`. Texto estático do modelo é escapado antes de reescrever os runs.
-- **Colunas obrigatórias da planilha:** `ID`, `Nome do teste (inicial)`, `Executado por`, `Status nativo`. O casamento é tolerante a acento, caixa, espaços e pontuação (aliases em `xlsx.rs`).
+- **Tokens do modelo** (não quebrar): `{{ID}}`, `{{NOME_TESTE}}`, `{{EXECUTADO_POR}}`, `{{STATUS}}`, `{{DATA}}`, `{{EVIDENCIAS}}`, e opcionais `{{TESTE_ORIGINAL}}`, `{{FONTE}}`, `{{MASSA}}`, `{{LOCAL}}`, `{{ORIENTACAO}}`, `{{CENARIO}}` (colunas da planilha; vazios se ausentes). Texto estático do modelo é escapado antes de reescrever os runs.
+- **Colunas obrigatórias da planilha:** `ID`, `Nome do teste (inicial)`, `Executado por`, `Status nativo`. Colunas opcionais do layout de caso: `Teste original`, `Fonte`, `Massa / pré-condição`, `Local`, `Orientação`, `Cenário`. O casamento é tolerante a acento, caixa, espaços e pontuação (aliases em `xlsx.rs`).
 - `Status nativo = Ignorado` → **não** gera DET.
 - **Um ID só pode resolver para uma subpasta.** Se houver mais de uma com o mesmo
   prefixo numérico, `gerar_docx` **não escolhe sozinho**: chama o callback

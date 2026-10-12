@@ -294,7 +294,7 @@ fn ajuda(prog: &str) {
                             Padrao: {FUSO_PADRAO_HORAS} (Horario de Brasilia). Afeta o token {{{{DATA}}}}.\n\n\
          Abra o terminal na sua pasta de trabalho e rode o comando para ver o menu.\n\n\
          Estrutura esperada da area de trabalho:\n\
-           modelos/                modelo_det.docx (com tokens {{{{ID}}}}, {{{{EVIDENCIAS}}}}, ...)\n\
+           modelos/                modelo_det.docx (com tokens {{{{ID}}}}, {{{{CENARIO}}}}, {{{{EVIDENCIAS}}}}, ...)\n\
            Release/                Release <Mes> <AAAA>/ ID CARD <n>/ <ID> - <nome>/\n\
            teste_selected_*.xlsx   planilha exportada (a mais recente e usada)"
     );

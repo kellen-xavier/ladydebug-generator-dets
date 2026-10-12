@@ -150,12 +150,24 @@ pub fn gerar_docx(
 
         let imagens = listar_imagens(&subpasta);
         let mut doc = template.clone();
+        let teste_original = col.get_opt(linha, col.teste_original);
+        let fonte = col.get_opt(linha, col.fonte);
+        let massa = col.get_opt(linha, col.massa);
+        let local = col.get_opt(linha, col.local);
+        let orientacao = col.get_opt(linha, col.orientacao);
+        let cenario = col.get_opt(linha, col.cenario);
         let vars = [
             ("{{ID}}", id.as_str()),
             ("{{NOME_TESTE}}", nome.as_str()),
             ("{{EXECUTADO_POR}}", executor.as_str()),
             ("{{STATUS}}", status.as_str()),
             ("{{DATA}}", data_hoje.as_str()),
+            ("{{TESTE_ORIGINAL}}", teste_original.as_str()),
+            ("{{FONTE}}", fonte.as_str()),
+            ("{{MASSA}}", massa.as_str()),
+            ("{{LOCAL}}", local.as_str()),
+            ("{{ORIENTACAO}}", orientacao.as_str()),
+            ("{{CENARIO}}", cenario.as_str()),
         ];
         doc.fill_placeholders(&vars);
         let n_img = doc.insert_images(&imagens, legendas)?;
