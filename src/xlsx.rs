@@ -172,23 +172,36 @@ pub struct HeaderMap {
     pub nome: usize,
     pub executor: usize,
     pub status: usize,
+    // Colunas opcionais: preenchem os campos do layout de caso (ausentes = vazio).
+    pub teste_original: Option<usize>,
+    pub fonte: Option<usize>,
+    pub massa: Option<usize>,
+    pub local: Option<usize>,
+    pub orientacao: Option<usize>,
+    pub cenario: Option<usize>,
 }
 
 impl HeaderMap {
     pub fn from_headers(cab: &[String]) -> Result<HeaderMap, String> {
+        let achar_opcional = |aliases: &[&str]| -> Option<usize> {
+            cab.iter()
+                .position(|h| aliases.iter().any(|a| normalize(h) == *a))
+        };
         let achar = |aliases: &[&str], campo: &str| -> Result<usize, String> {
-            for (i, h) in cab.iter().enumerate() {
-                let hn = normalize(h);
-                if aliases.iter().any(|a| hn == *a) {
-                    return Ok(i);
-                }
-            }
-            Err(format!(
-                "coluna obrigatoria nao encontrada: {campo} (cabecalhos: {})",
-                cab.join(" | ")
-            ))
+            achar_opcional(aliases).ok_or_else(|| {
+                format!(
+                    "coluna obrigatoria nao encontrada: {campo} (cabecalhos: {})",
+                    cab.join(" | ")
+                )
+            })
         };
         Ok(HeaderMap {
+            teste_original: achar_opcional(&["teste original"]),
+            fonte: achar_opcional(&["fonte"]),
+            massa: achar_opcional(&["massa pre condicao", "massa", "pre condicao"]),
+            local: achar_opcional(&["local"]),
+            orientacao: achar_opcional(&["orientacao"]),
+            cenario: achar_opcional(&["cenario", "cenario do teste"]),
             id: achar(&["id"], "ID")?,
             nome: achar(
                 &[
@@ -209,5 +222,10 @@ impl HeaderMap {
 
     pub fn get(&self, linha: &[String], idx: usize) -> String {
         linha.get(idx).cloned().unwrap_or_default().trim().to_string()
+    }
+
+    /// Valor de uma coluna opcional; coluna ausente na planilha devolve vazio.
+    pub fn get_opt(&self, linha: &[String], idx: Option<usize>) -> String {
+        idx.map(|i| self.get(linha, i)).unwrap_or_default()
     }
 }

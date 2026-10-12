@@ -153,6 +153,12 @@ O repositório já traz um **modelo pronto** em `modelos/modelo_det.docx`. Você
 | `{{EXECUTADO_POR}}` | quem executou (coluna `Executado por`) |
 | `{{STATUS}}` | o status (coluna `Status nativo`) |
 | `{{DATA}}` | a data de hoje (DD/MM/AAAA) |
+| `{{TESTE_ORIGINAL}}` | coluna `Teste original` (opcional) |
+| `{{FONTE}}` | coluna `Fonte` (opcional) |
+| `{{MASSA}}` | coluna `Massa / pré-condição` (opcional) |
+| `{{LOCAL}}` | coluna `Local` (opcional) |
+| `{{ORIENTACAO}}` | coluna `Orientação` (opcional) |
+| `{{CENARIO}}` | coluna `Cenário` (opcional) |
 | `{{EVIDENCIAS}}` | este parágrafo vira **as imagens** da subpasta |
 
 Funciona mesmo que o Word "quebre" um token internamente — o programa reconstrói e substitui certo.
@@ -160,6 +166,8 @@ Funciona mesmo que o Word "quebre" um token internamente — o programa reconstr
 ## A planilha (colunas necessárias)
 
 O programa precisa encontrar estas colunas: **`ID`**, **`Nome do teste (inicial)`**, **`Executado por`**, **`Status nativo`**.
+
+As colunas `Teste original`, `Fonte`, `Massa / pré-condição`, `Local`, `Orientação` e `Cenário` são **opcionais**: se existirem, preenchem os campos do DET; se não, os campos ficam vazios.
 
 O reconhecimento é **tolerante** a acento, maiúsculas/minúsculas, espaços e pontuação. Aceita variações como `Executado por` / `Executador por` / `Executor` / `Responsável`, e `Nome do teste` / `Nome do teste (inicial)`.
 

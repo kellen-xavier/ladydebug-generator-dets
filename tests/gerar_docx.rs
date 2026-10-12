@@ -190,3 +190,71 @@ fn id_ambiguo_com_desempate_grava_na_pasta_escolhida() {
         .any(|e| e.file_name().to_string_lossy().starts_with("DET_"));
     assert!(!sobrou, "DET vazou para a pasta nao escolhida");
 }
+
+#[test]
+fn layout_de_caso_preenche_colunas_opcionais_e_aceita_planilha_sem_elas() {
+    let tw = common::TempWs::nova();
+    let card = tw.criar_dir("Release/Release Julho 2026/ID CARD 1399338");
+    let sub = tw.criar_dir("Release/Release Julho 2026/ID CARD 1399338/13 - Login");
+    std::fs::write(sub.join("01.png"), common::png_falso(400, 300)).unwrap();
+
+    let modelo = tw.join("modelo.docx");
+    common::escrever_template(
+        &modelo,
+        &[
+            "{{ID}} — {{NOME_TESTE}}",
+            "Teste original: {{TESTE_ORIGINAL}}",
+            "Fonte: {{FONTE}}",
+            "Massa / pré-condição: {{MASSA}}",
+            "Local: {{LOCAL}}",
+            "Orientação: {{ORIENTACAO}}",
+            "Cenário: {{CENARIO}}",
+            "Executado por: {{EXECUTADO_POR}}",
+            "Status: {{STATUS}}",
+            "Data: {{DATA}}",
+            "{{EVIDENCIAS}}",
+        ],
+    );
+
+    // Planilha com as colunas opcionais (cabecalhos com acento/pontuacao, tolerantes).
+    let xlsx = tw.join("teste_selected_a.xlsx");
+    common::escrever_xlsx(
+        &xlsx,
+        &[
+            vec![
+                "ID",
+                "Nome do teste (inicial)",
+                "Executado por",
+                "Status nativo",
+                "Fonte",
+                "Massa / pré-condição",
+                "Local",
+                "Cenário",
+            ],
+            vec!["13", "Login", "Fulano", "Aprovado", "Pruebas B4", "Conta X", "Madrid", "Dado que entro"],
+        ],
+    );
+    let r = acoes::gerar_docx(&card, &xlsx, &modelo, false, &acoes::sem_desempate).unwrap();
+    assert_eq!(r.gerados, 1);
+    let xml = common::ler_entrada_zip(&sub.join("DET_13_Login.docx"), "word/document.xml");
+    assert!(xml.contains("Pruebas B4"));
+    assert!(xml.contains("Conta X"));
+    assert!(xml.contains("Madrid"));
+    assert!(xml.contains("Dado que entro"));
+    assert!(!xml.contains("{{"));
+
+    // Mesma coisa com planilha sem as colunas opcionais: campos ficam vazios, sem erro.
+    let xlsx2 = tw.join("teste_selected_b.xlsx");
+    common::escrever_xlsx(
+        &xlsx2,
+        &[
+            vec!["ID", "Nome do teste (inicial)", "Executado por", "Status nativo"],
+            vec!["13", "Login", "Fulano", "Aprovado"],
+        ],
+    );
+    let r2 = acoes::gerar_docx(&card, &xlsx2, &modelo, false, &acoes::sem_desempate).unwrap();
+    assert_eq!(r2.gerados, 1);
+    let xml2 = common::ler_entrada_zip(&sub.join("DET_13_Login.docx"), "word/document.xml");
+    assert!(xml2.contains("Fulano"));
+    assert!(!xml2.contains("{{"));
+}
