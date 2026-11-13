@@ -159,7 +159,12 @@ O repositório já traz um **modelo pronto** em `modelos/modelo_det.docx`. Você
 | `{{LOCAL}}` | coluna `Local` (opcional) |
 | `{{ORIENTACAO}}` | coluna `Orientação` (opcional) |
 | `{{CENARIO}}` | coluna `Cenário` (opcional) |
-| `{{EVIDENCIAS}}` | este parágrafo vira **as imagens** da subpasta |
+| `{{EVIDENCIAS_SUA_IMAGEM_VAI_AQUI}}` | este parágrafo vira **as imagens** da subpasta, em ordem natural (`1`, `2`, `10`) |
+
+O modelo fica em `modelos/` sem as capturas. Ao gerar, o programa cria uma
+**cópia preenchida** na subpasta do teste, dentro de `Release/<Release>/ID CARD <n>/`.
+Coloque as capturas `.png`, `.jpg` ou `.jpeg` diretamente na subpasta do teste.
+O marcador antigo `{{EVIDENCIAS}}` continua aceito em modelos personalizados.
 
 Funciona mesmo que o Word "quebre" um token internamente — o programa reconstrói e substitui certo.
 

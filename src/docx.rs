@@ -13,6 +13,8 @@ use crate::util::*;
 const EMU_PER_PX: u64 = 9525; // 914400 EMU/pol / 96 px/pol
 const MAX_W_EMU: u64 = 5_760_000; // ~160mm: largura util em A4 (margens 2,5cm)
 const MAX_H_EMU: u64 = 8_000_000; // folga vertical
+const MARCADOR_EVIDENCIAS: &str = "{{EVIDENCIAS_SUA_IMAGEM_VAI_AQUI}}";
+const MARCADOR_ANTIGO: &str = "{{EVIDENCIAS}}";
 
 #[derive(Clone)]
 pub struct Docx {
@@ -61,7 +63,7 @@ impl Docx {
         }
     }
 
-    /// Insere as imagens no lugar do paragrafo {{EVIDENCIAS}}.
+    /// Insere imagens na copia do modelo, aceitando o marcador novo ou antigo.
     /// Devolve quantas imagens foram inseridas.
     pub fn insert_images(
         &mut self,
@@ -69,16 +71,30 @@ impl Docx {
         legendas: bool,
     ) -> Result<usize, String> {
         let doc = self.entry_str("word/document.xml").ok_or("document.xml ausente")?;
-
-        if !doc.contains("{{EVIDENCIAS}}") {
+        // O Word pode quebrar o marcador em varios runs; junta seus textos antes
+        // de localizar o paragrafo que sera substituido pelas capturas.
+        let mut doc = fill_text(&doc, &[
+            (MARCADOR_EVIDENCIAS, MARCADOR_EVIDENCIAS),
+            (MARCADOR_ANTIGO, MARCADOR_ANTIGO),
+        ]);
+        let marcador = if doc.contains(MARCADOR_EVIDENCIAS) {
+            MARCADOR_EVIDENCIAS
+        } else {
+            MARCADOR_ANTIGO
+        };
+        if !doc.contains(marcador) {
             if !imagens.is_empty() {
-                warn("modelo sem {{EVIDENCIAS}}: imagens nao inseridas.");
+                return Err(format!(
+                    "modelo sem marcador de evidencias: use {MARCADOR_EVIDENCIAS}"
+                ));
             }
             return Ok(0);
         }
         if imagens.is_empty() {
-            let limpo = remover_paragrafo_com(&doc, "{{EVIDENCIAS}}");
-            self.set_entry("word/document.xml", limpo.into_bytes());
+            while doc.contains(marcador) {
+                doc = remover_paragrafo_com(&doc, marcador);
+            }
+            self.set_entry("word/document.xml", doc.into_bytes());
             return Ok(0);
         }
 
@@ -93,7 +109,7 @@ impl Docx {
         let mut media_idx = max_media_idx(&self.entries) + 1;
         let mut docpr = 900_000u32;
 
-        let mut xml_imgs = String::new();
+        let mut blocos = Vec::new();
         let mut novas_media: Vec<(String, Vec<u8>)> = Vec::new();
         let mut inseridas = 0usize;
 
@@ -126,10 +142,11 @@ impl Docx {
             garantir_content_type(&mut ctypes, &ext);
             rels = adicionar_rel(&rels, &rid, &rel_target);
 
-            xml_imgs.push_str(&paragrafo_imagem(&rid, cx, cy, docpr, &nome_arq));
+            let mut bloco = paragrafo_imagem(&rid, cx, cy, docpr, &nome_arq);
             if legendas {
-                xml_imgs.push_str(&paragrafo_legenda(&nome_arq));
+                bloco.push_str(&paragrafo_legenda(&nome_arq));
             }
+            blocos.push(bloco);
 
             novas_media.push((media_name, bytes));
             prox_rid += 1;
@@ -138,7 +155,20 @@ impl Docx {
             inseridas += 1;
         }
 
-        let doc = substituir_paragrafo_com(&doc, "{{EVIDENCIAS}}", &xml_imgs);
+        if inseridas == 0 {
+            return Err("nenhuma imagem PNG/JPEG valida foi inserida no DET".into());
+        }
+
+        let posicoes = doc.matches(marcador).count();
+        let mut blocos = blocos.into_iter();
+        for posicao in 0..posicoes {
+            let xml = if posicao + 1 == posicoes {
+                blocos.by_ref().collect::<String>()
+            } else {
+                blocos.next().unwrap_or_default()
+            };
+            doc = substituir_paragrafo_com(&doc, marcador, &xml);
+        }
 
         self.set_entry("word/document.xml", doc.into_bytes());
         self.set_entry("word/_rels/document.xml.rels", rels.into_bytes());

@@ -6,6 +6,36 @@ mod common;
 use gestor_det::acoes;
 
 #[test]
+fn modelo_real_insere_capturas_na_copia_dentro_da_release() {
+    let tw = common::TempWs::nova();
+    let card = tw.criar_dir("Release/Release Novembro 2026/ID CARD 123");
+    let sub = tw.criar_dir("Release/Release Novembro 2026/ID CARD 123/13 - Login");
+    for nome in ["10.png", "2.png", "1.png"] {
+        std::fs::write(sub.join(nome), common::png_falso(400, 300)).unwrap();
+    }
+    let xlsx = tw.join("teste_selected_teste.xlsx");
+    common::escrever_xlsx(&xlsx, &[
+        vec!["ID", "Nome do teste (inicial)", "Executado por", "Status nativo"],
+        vec!["13", "Login", "Ana", "Aprovado"],
+    ]);
+    let modelo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("modelos/modelo_det.docx");
+    let original = std::fs::read(&modelo).unwrap();
+
+    let r = acoes::gerar_docx(&card, &xlsx, &modelo, false, &acoes::sem_desempate).unwrap();
+    assert_eq!(r.gerados, 1);
+    let saida = sub.join("DET_13_Login.docx");
+    assert!(saida.is_file());
+    let xml = common::ler_entrada_zip(&saida, "word/document.xml");
+    assert_eq!(xml.matches("<a:blip r:embed=").count(), 3);
+    assert!(!xml.contains("EVIDENCIAS_SUA_IMAGEM_VAI_AQUI"));
+    let um = xml.find("descr=\"1.png\"").unwrap();
+    let dois = xml.find("descr=\"2.png\"").unwrap();
+    let dez = xml.find("descr=\"10.png\"").unwrap();
+    assert!(um < dois && dois < dez, "as imagens devem seguir ordem natural");
+    assert_eq!(std::fs::read(&modelo).unwrap(), original, "o modelo deve permanecer sem imagens");
+}
+
+#[test]
 fn gera_det_por_id_e_pula_ignorado() {
     let tw = common::TempWs::nova();
     let card = tw.criar_dir("Release/Release Julho 2026/ID CARD 1399338");

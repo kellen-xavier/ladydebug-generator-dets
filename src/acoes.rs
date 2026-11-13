@@ -272,6 +272,10 @@ pub fn gerar_docx(
         };
 
         let imagens = listar_imagens(&subpasta);
+        if imagens.is_empty() {
+            warn(&format!("ID {id} '{nome}': nenhuma imagem PNG/JPEG na subpasta."));
+            r.avisos += 1;
+        }
         let mut doc = template.clone();
         let teste_original = col.get_opt(linha, col.teste_original);
         let fonte = col.get_opt(linha, col.fonte);

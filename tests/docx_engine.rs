@@ -3,6 +3,17 @@
 
 mod common;
 
+#[test]
+fn modelo_sem_marcador_nao_finge_ter_inserido_imagens() {
+    let ws = common::TempWs::nova();
+    let modelo = ws.join("sem_marcador.docx");
+    common::escrever_template(&modelo, &["Evidências do teste"]);
+    let imagem = ws.join("1.png");
+    std::fs::write(&imagem, common::png_falso(400, 300)).unwrap();
+    let mut doc = gestor_det::docx::Docx::read(&modelo).unwrap();
+    assert!(doc.insert_images(&[imagem], false).is_err());
+}
+
 use gestor_det::docx::Docx;
 
 #[test]
