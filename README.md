@@ -238,3 +238,10 @@ Notas e limitações:
 ## Como Contribuir
 
 ## Referências Técnicas
+
+## Aplicativo gráfico (Linux/Windows)
+
+A interface Flutter fica em [`app/`](app/README.md). No Omarchy/Arch, execute
+`./scripts/install-omarchy.sh` para compilar e instalar o aplicativo no lançador.
+No Windows, execute `scripts\build-windows.ps1` no PowerShell. A TUI Rust continua
+funcionando independentemente da interface.
